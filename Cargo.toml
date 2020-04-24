@@ -8,3 +8,5 @@ edition = "2018"
 
 [dependencies]
 lazy_static = "1.4"
+libc = "0.2"
+arrayvec = "0.5"
