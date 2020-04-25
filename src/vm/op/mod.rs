@@ -8,42 +8,52 @@ pub enum FixOpMode {
     ABC(u8, u8, u8),
 }
 impl FixOpMode{
-    fn get_a(&self)->u8{
+    pub fn get_a(&self,ins:u32)->u8{
         use FixOpMode::*;
         if let A(a) = &self {
-            *a
+            let a  = (ins >> 8) as u8;
+            a
         }else{
             panic!("ERROR! INSTRUCTION IS NOT AT MODE A");
         }
     }
-    fn get_ab(&self)->(u8,u8){
+    pub fn get_ab(&self,ins:u32)->(u8,u8){
         use FixOpMode::*;
         if let AB(a,b) = &self {
-            (*a,*b)
+            let a  = (ins >> 8) as u8;
+            let b =  (ins >> 16) as u8;
+            (a,b)
         }else{
             panic!("ERROR! INSTRUCTION IS NOT AT MODE AB");
         }
     }
-    fn get_abx(&self)->(u8,u16){
+    pub fn get_abx(&self,ins:u32)->(u8,u16){
         use FixOpMode::*;
         if let ABX(a,b) = &self {
-            (*a,*b)
+            let a  = (ins >> 8) as u8;
+            let b =  (ins >> 16) as u16;
+            (a,b)
         }else{
             panic!("ERROR! INSTRUCTION IS NOT AT MODE ABX");
         }
     }
-    fn get_aibx(&self)->(u8,u16){
+    pub fn get_aibx(&self,ins:u32)->(u8,u16){
         use FixOpMode::*;
         if let AIBX(a,b) = &self {
-            (*a,*b)
+            let a  = (ins >> 8) as u8;
+            let b =  (ins >> 16) as u16;
+            (a,b)
         }else{
             panic!("ERROR! INSTRUCTION IS NOT AT MODE AIBX");
         }
     }
-    fn get_abc(&self)->(u8,u8,u8){
+    pub fn get_abc(&self,ins:u32)->(u8,u8,u8){
         use FixOpMode::*;
         if let ABC(a,b,c) = &self {
-            (*a,*b,*c)
+            let a  = (ins >> 8) as u8;
+            let b =  (ins >> 16) as u8;
+            let c = (ins >> 24) as u8;
+            (a,b,c)
         }else{
             panic!("ERROR! INSTRUCTION IS NOT AT MODE ABC");
         }
@@ -82,13 +92,12 @@ impl Op {
     }
 }
 
-// in address reg
-pub const R:u8 = 0x01; // register stack ref
-pub const C:u8 = 0x02; // constant table ref
+pub const RS:u8 = 0x01; // register ref stack
+pub const RC:u8 = 0x02; // register ref constant table
+pub const RP:u8 = 0x03; // register ref sub protos
+pub const RCC:u8 = 0x04; // register ref closures
 
-// in value and simd reg
-pub const V:u8 = 0x03; // value
-pub const M:u8 = 0x04; // simd value
+pub const VI:u8 = 0xFF; // only use for jump
 
 pub mod vm;
 pub mod load;

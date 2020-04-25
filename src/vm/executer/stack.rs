@@ -8,20 +8,22 @@ use arrayvec::*;
 // so use linear scan algorithm for 16 register allocation
 // ========================================================
 // well ignore me i wont write asm by my self would I?
+// but we only use u8 for index ~ so ~
+#[derive(Debug)]
 pub struct Stack{
-    pub stack:Vec<PrimeType>,
+    pub stack:ArrayVec<[PrimeType;256]>,
 }
 impl Stack{
     pub fn new()->Stack{
-        Stack{stack:vec!()}
+        Stack{stack:ArrayVec::new()}
     }
 
     pub fn top(&self) -> isize {
         self.stack.len() as isize
     }
 
-    pub fn reserve_capacity(&mut self, n: usize)->bool {
-        self.vec.reserve(n);
+    pub fn reserve_capacity(&mut self, n: usize) -> bool {
+        self.stack.remaining_capacity() + n > self.stack.capacity()
     }
 
     pub fn push(&mut self, val: PrimeType) {

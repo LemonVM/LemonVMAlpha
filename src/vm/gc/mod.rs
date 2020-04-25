@@ -5,6 +5,8 @@
     // check avaliable ratio
     // free the memory
 pub mod heap;
-pub mod tri_color;
+pub mod rc;
+mod test_rc;
+// pub mod tri_color;
 mod test_heap;
 // TODO: prob a arc on a tri color could be faster approch

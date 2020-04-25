@@ -132,7 +132,7 @@ pub struct Prototype {
     params: u8,
     is_vargs: u8,
     stack_size: u8,
-    instruction_table: Vec<VMInt>,
+    pub instruction_table: Vec<VMInt>,
     // closure captured outer variable
     closure_caps: Vec<ClosureCap>,
     protos: Vec<Prototype>,
