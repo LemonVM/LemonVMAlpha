@@ -59,16 +59,18 @@ impl FixOpMode{
         }
     }
 }
+// tag 0x00 + fix op
 #[derive(Debug)]
 pub struct FixOp {
     pub op: u8,
     pub opmode: FixOpMode,
 }
+// tag 0xFF + var op
 #[derive(Debug)]
 pub struct VarOp {
     pub op: u8,
     pub len: u8,
-    pub offset: u8, // len % 4 != 0 fill n byte as offset
+    pub offset: u8, // len % 4 != 0 fill n byte as offset in front
 }
 #[derive(Debug)]
 pub enum Op {

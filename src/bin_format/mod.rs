@@ -15,6 +15,11 @@ pub const TAG_CHAR: u8 = 0x02;
 pub const TAG_INT: u8 = 0x03;
 pub const TAG_NUM: u8 = 0x04;
 pub const TAG_SYM: u8 = 0x05;
+pub const TAG_SIMDCHAR: u8 = 0x06;
+pub const TAG_SIMDINT: u8 = 0x07;
+pub const TAG_SIMDNUM: u8 = 0x08;
+// ROW in constant pool ROW will only consist of pure data above
+pub const TAG_ROW: u8 = 0x09; 
 
 pub type VMChar = u16;
 pub type VMInt = u32;
@@ -24,9 +29,16 @@ pub type VMSym = Vec<VMChar>;
 use std::collections::HashMap;
 use std::sync::RwLock;
 lazy_static!{
-    pub static ref CONSTANT_POOL: RwLock<ConstantPool> = RwLock::new(ConstantPool{pool:HashMap::new()});
+    pub static ref CONSTANT_POOL: RwLock<ConstantPool> = RwLock::new(ConstantPool{
+        pool_of_int:(TAG_INT,HashMap::new()),
+        pool_of_num:(TAG_NUM,HashMap::new()),
+        pool_of_sym:(TAG_SYM,HashMap::new()),
+        pool_of_simdchar:(TAG_SIMDCHAR,HashMap::new()),
+        pool_of_simdint:(TAG_SIMDINT,HashMap::new()),
+        pool_of_simdnum:(TAG_SIMDNUM,HashMap::new()),
+        pool_of_row:(TAG_ROW,HashMap::new())
+    });
 }
-
 #[repr(C)]
 #[derive(Clone, PartialEq, Debug)]
 pub struct BinaryChunk {
@@ -102,22 +114,32 @@ pub struct LocalVar {
     end_pc: VMInt,
 }
 
-#[repr(C)]
-#[derive(Clone, PartialEq, Debug)]
-pub enum Constant {
-    Null,
-    Bool(bool),
-    Char(VMChar),
+#[derive(Clone,Debug,PartialEq)]
+pub enum Constant{
     Int(VMInt),
     Num(VMNum),
     Sym(VMSym),
+
+    SIMDInt(VMInt,VMInt,VMInt,VMInt),
+    SIMDNum(VMNum,VMNum,VMNum,VMNum),
+    SIMDChar(VMChar,VMChar,VMChar,VMChar),
+
+    Row() // TODO：完成这厮
 }
 
+// layout: types_len (tag len (uuid:data)*)*
+//          u8         u8  u32 u8*
+// types_len is how many types in this constant pool
 #[repr(C)]
 #[derive(Debug)]
-// layout: symbol len constants
-pub struct ConstantPool {
-    pub pool: HashMap<VMSym, Vec<Constant>>,
+pub struct ConstantPool{
+    pub pool_of_int:(u8,HashMap<u32,Constant>),
+    pub pool_of_num:(u8,HashMap<u32,Constant>),
+    pub pool_of_sym:(u8,HashMap<u32,Constant>),
+    pub pool_of_simdchar:(u8,HashMap<u32,Constant>),
+    pub pool_of_simdint:(u8,HashMap<u32,Constant>),
+    pub pool_of_simdnum:(u8,HashMap<u32,Constant>),
+    pub pool_of_row:(u8,HashMap<u32,Constant>)
 }
 
 #[repr(C)]
@@ -126,13 +148,14 @@ pub struct ConstantPool {
 pub struct Prototype {
     // use uuid for finding constant in common constant pool
     // could reduce the size of single binary file
-    uuid: VMSym,
+    name: VMSym,
+    uuid: u32,
     line_start: VMInt,
     line_end: VMInt,
     params: u8,
     is_vargs: u8,
     stack_size: u8,
-    pub instruction_table: Vec<VMInt>,
+    pub instruction_table: Vec<*const u8>,
     // closure captured outer variable
     closure_caps: Vec<ClosureCap>,
     protos: Vec<Prototype>,
@@ -156,20 +179,25 @@ impl std::fmt::Display for Prototype {
                 .map(|n| n.to_string())
                 .unwrap_or(String::new());
             instructions += format!(
-                "\t{}\t[{}]\t0x{:08X}\n",
+                "\t{}\t[{}]\t{:?}\n",
                 pc + 1,
                 line,
                 self.instruction_table[pc]
             )
             .as_str();
         }
-        writeln!(f,"===== Prototype =====\n  < from line: {} ,to line: {} > ( params: {} ,is_vargs?: {} )\n  {{ stack size: {} ,number of instructions: {} }}\n   number of constants: {} varialbles: {} closure_caps: {} functions: {}\n\tinstructions: \n{}",self.line_start,self.line_end,self.params,self.is_vargs!=0,self.stack_size,self.instruction_table.len(),CONSTANT_POOL.read().unwrap().pool.len(),self.debug_local_variables.len(),self.closure_caps.len(),self.protos.len(),instructions)
+        writeln!(f,"===== Prototype =====\n  < from line: {} ,to line: {} > ( params: {} ,is_vargs?: {} )\n  {{ stack size: {} ,number of instructions: {} }}\n varialbles: {} closure_caps: {} functions: {}\n\tinstructions: \n{}",self.line_start,self.line_end,self.params,self.is_vargs!=0,self.stack_size,self.instruction_table.len(),self.debug_local_variables.len(),self.closure_caps.len(),self.protos.len(),instructions)
     }
 }
-impl Prototype {
-    // two clone is kind of inefficiant
-    pub fn get_constants(&self) -> Vec<Constant> {
-        let uuid = self.uuid.clone();
-        CONSTANT_POOL.read().unwrap().pool[&uuid].clone()
+pub fn get_constant(tag:u8,uuid:u32) -> Constant {
+    match tag{
+        TAG_INT => CONSTANT_POOL.read().unwrap().pool_of_int.1[&uuid].clone(),
+        TAG_NUM => CONSTANT_POOL.read().unwrap().pool_of_num.1[&uuid].clone(),
+        TAG_SYM => CONSTANT_POOL.read().unwrap().pool_of_sym.1[&uuid].clone(),
+        TAG_SIMDCHAR => CONSTANT_POOL.read().unwrap().pool_of_simdchar.1[&uuid].clone(),
+        TAG_SIMDINT => CONSTANT_POOL.read().unwrap().pool_of_simdint.1[&uuid].clone(),
+        TAG_SIMDNUM => CONSTANT_POOL.read().unwrap().pool_of_simdnum.1[&uuid].clone(),
+        TAG_ROW => {unimplemented!()},
+        _ => {unimplemented!()}
     }
 }

@@ -3,7 +3,7 @@ pub struct State {
     pub stack: Stack,
     current_proto: super::super::super::bin_format::Prototype,
     pc: usize,
-    ir: u32,
+    ir: *const u8,
 }
 impl State {
     pub fn new(proto:super::super::super::bin_format::Prototype)->State{
@@ -11,7 +11,7 @@ impl State {
             stack:Stack::new(),
             current_proto:proto,
             pc:0,
-            ir:0,
+            ir:0 as *const u8,
         }
     }
     pub fn pc(&self) -> usize {
@@ -24,7 +24,7 @@ impl State {
         self.pc += n;
     }
 
-    pub fn fetch(&mut self) -> u32 {
+    pub fn fetch(&mut self) -> *const u8 {
         let instr = self.current_proto.instruction_table[self.pc as usize];
         self.pc += 1;
         self.ir = instr;
@@ -33,27 +33,54 @@ impl State {
     pub fn execute(&mut self) {
         loop {
             let mut ins = self.fetch();
-            let iins = ins as u8;
+            let iins = unsafe{*ins as u8};
+            println!("IR: 0x{:02x}",iins);
             loop {
                 // vm
                 if iins == 0x24{
                     return;
                 }
-                if ins == 0 {
+                if iins == 0x00 {
                     // debug
-                    println!("{}", "NOP");
+                    println!("NOP");
                 }
                 // load
-                else if ins < 0 && ins > 0 {
+                else if iins > 0x00 && iins < 0x20 {
+                    use super::super::op::load::*;
+                    match iins {
+                        LOADK => {
+                            let offset = LOADK_OP.get_var().offset;
+                            let len = LOADK_OP.get_var().len;
+                            let total_len = offset+len;
+                            let tag = unsafe{*(ins.add(3))};
+                            let uuid = unsafe{*(ins.add(3+1)) as u32};
+                            use super::super::super::bin_format::get_constant;
+                            let cons = get_constant(tag, uuid);
+                            self.stack.push(super::PrimeType::from(cons));
+                            break;
+                        },
+                        LOADNULL => {
+                            let opmodes = unsafe{LOADNULL_OP.get_fix().opmode.get_ab(*(ins as *const u32))};
+                            let rs1 = opmodes.0;
+                            let rs2 = opmodes.1;
+                            use super::PrimeType::*;
+                            for i in rs1..rs2{
+                                self.stack.push(Null);
+                            }
+                            break;
+                        },
+                        LOADBOOL => {unimplemented!()},
+                        _ => {unimplemented!()}
+                    }
                 }
-                // cf
-                else if ins < 0 && ins > 0 {
-                }
-                // comp
-                else if ins < 0 && ins > 0 {
-                }
+                // // cf
+                // else if ins < 0 && ins > 0 {
+                // }
+                // // comp
+                // else if ins < 0 && ins > 0 {
+                // }
                 // num
-                else if iins >= 0x60 && iins < 0x8f {
+                else if iins > 0x59 && iins < 0x90 {
                     use super::super::op::arith::*;
                     match iins {
                         NEGM => {}
@@ -64,7 +91,7 @@ impl State {
                         POWM => {}
                         DIVM => {}
                         NEG => {
-                            let opmodes = NEGM_OP.get_fix().opmode.get_ab(ins);
+                            let opmodes = unsafe{NEGM_OP.get_fix().opmode.get_ab(*(ins as *const u32))};
                             let rs1 = opmodes.0;
                             let rs2 = opmodes.1;
                             use super::PrimeType::*;
@@ -100,17 +127,17 @@ impl State {
                         _ => panic!("ERROR! INSTRUCTION NOT SUPPORTED"),
                     }
                 }
-                // stack
-                else if ins < 0 && ins > 0 {
-                }
-                // user def
-                else if ins < 0 && ins > 0 {
-                }
-                // debug
-                else if ins < 0 && ins > 0 {
-                } else {
-                    panic!("ERROR INSTRUCTION '0x{:02X}' NOT SUPPORTED", ins);
-                }
+                // // stack
+                // else if ins < 0 && ins > 0 {
+                // }
+                // // user def
+                // else if ins < 0 && ins > 0 {
+                // }
+                // // debug
+                // else if ins < 0 && ins > 0 {
+                // } else {
+                //     panic!("ERROR INSTRUCTION '0x{:02X}' NOT SUPPORTED", ins);
+                // }
             }
         }
     }
