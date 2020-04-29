@@ -47,6 +47,7 @@ impl State {
                 // load
                 else if iins > 0x00 && iins < 0x20 {
                     use super::super::op::load::*;
+                    use super::Value;
                     match iins {
                         LOADK => {
                             let offset = LOADK_OP.get_var().offset;
@@ -56,16 +57,15 @@ impl State {
                             let uuid = unsafe{*(ins.add(3+1)) as u32};
                             use super::super::super::bin_format::get_constant;
                             let cons = get_constant(tag, uuid);
-                            self.stack.push(super::PrimeType::from(cons));
+                            self.stack.push(Value::from(super::PrimeValue::from(cons)));
                             break;
                         },
                         LOADNULL => {
                             let opmodes = unsafe{LOADNULL_OP.get_fix().opmode.get_ab(*(ins as *const u32))};
                             let rs1 = opmodes.0;
                             let rs2 = opmodes.1;
-                            use super::PrimeType::*;
                             for i in rs1..rs2{
-                                self.stack.push(Null);
+                                self.stack.push(Value::from(super::PrimeValue::Null));
                             }
                             break;
                         },
@@ -94,18 +94,19 @@ impl State {
                             let opmodes = unsafe{NEGM_OP.get_fix().opmode.get_ab(*(ins as *const u32))};
                             let rs1 = opmodes.0;
                             let rs2 = opmodes.1;
-                            use super::PrimeType::*;
-                            match &mut self.stack.stack[rs2 as usize] {
+                            use super::PrimeValue::*;
+                            use super::Value;
+                            match &mut self.stack.stack[rs2 as usize].0 {
                                 Null => {
-                                    self.stack.stack[rs1 as usize] = Null;
+                                    self.stack.stack[rs1 as usize] = Value::from(Null);
                                 }
                                 Char(c) => {
-                                    self.stack.stack[rs1 as usize] = Char((-(*c as i16)) as u16)
+                                    self.stack.stack[rs1 as usize] = Value::from(Char((-(*c as i16)) as u16))
                                 }
                                 Int(i) => {
-                                    self.stack.stack[rs1 as usize] = Int((-(*i as i32)) as u32)
+                                    self.stack.stack[rs1 as usize] = Value::from(Int((-(*i as i32)) as u32))
                                 }
-                                Num(n) => self.stack.stack[rs1 as usize] = Num(-*n),
+                                Num(n) => self.stack.stack[rs1 as usize] = Value::from(Num(-*n)),
                                 _ => unimplemented!(),
                             }
                             break;

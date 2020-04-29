@@ -10,3 +10,6 @@ mod test_rc;
 // pub mod tri_color;
 mod test_heap;
 // TODO: prob a arc on a tri color could be faster approch
+trait Heap{
+    
+}

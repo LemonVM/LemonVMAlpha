@@ -7,8 +7,8 @@ fn LocVarFromBytes() {
     ];
     let mut reader = reader::Reader::new(bytes.as_ptr());
     let locvar = reader.read_loc_var();
-    assert_eq!(locvar.name[0], 'L' as u16);
-    assert_eq!(locvar.name[1], 'e' as u16);
+    assert_eq!(locvar.name.0[0], 'L' as u16);
+    assert_eq!(locvar.name.0[1], 'e' as u16);
     assert_eq!(locvar.start_pc, 1);
     assert_eq!(locvar.end_pc, 2);
 }
@@ -84,4 +84,41 @@ fn BinaryChunkFromByteCode() {
     let bin = reader.read_binary_chunk();
     assert_eq!(bin.header.validate(), true);
     assert_eq!(bin.up_value_size, 1);
+}
+
+#[test]
+fn ReadRowType() {
+    // 0x00 -> array, 0xff -> row
+    // 0x00         len         (flag  data)
+    // 0xFF         len         ( vmsym    flag      data     )*
+    // row start    row size      key     value type  value
+    let bytes = [
+        0x00,
+        0x02,0x00,0x00,0x00,
+        0x03, 0x01,0x00,0x00,0x00,
+        0x00
+    ];
+    let mut reader = reader::Reader::new(bytes.as_ptr());
+    let c = reader.read_constant(0x09);
+    println!("{:?}",c);
+    if let super::Constant::Row(r) = c {
+        assert_eq!(r.is_arr,true);
+        assert_eq!(r.arr[0],super::Constant::Int(1));
+    }
+
+    let bytes = [
+        0xFF,
+        0x02,0x00,0x00,0x00,
+        0x02, 0x00, 0x00, 0x00, 0x4c, 0x00, 0x65, 0x00,
+        0x03, 0x01,0x00,0x00,0x00,
+        0x01, 0x00, 0x00, 0x00, 0x68, 0x00,
+        0x00
+    ];
+    let mut reader = reader::Reader::new(bytes.as_ptr());
+    let c = reader.read_constant(0x09);
+    println!("{:?}",c);
+    if let super::Constant::Row(r) = c {
+        assert_eq!(r.is_arr,false);
+        assert_eq!(r.row[&super::VMSym(vec!(0x0068))],super::Constant::Null);
+    }
 }

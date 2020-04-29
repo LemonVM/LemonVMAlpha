@@ -19,24 +19,39 @@ pub const TAG_SIMDCHAR: u8 = 0x06;
 pub const TAG_SIMDINT: u8 = 0x07;
 pub const TAG_SIMDNUM: u8 = 0x08;
 // ROW in constant pool ROW will only consist of pure data above
-pub const TAG_ROW: u8 = 0x09; 
+pub const TAG_ROW: u8 = 0x09;
+pub const TAG_USERDATA:u8 = 0x10;
 
 pub type VMChar = u16;
 pub type VMInt = u32;
 pub type VMNum = f64;
-pub type VMSym = Vec<VMChar>;
+#[derive(Clone, PartialEq,Eq,Hash)]
+pub struct VMSym(pub Vec<VMChar>);
+impl std::fmt::Display for VMSym {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!(
+            "\"{}\"",
+            String::from_utf16(self.0.as_ref()).unwrap()
+        ))
+    }
+}
+impl std::fmt::Debug for VMSym {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("{}", self))
+    }
+}
 
 use std::collections::HashMap;
 use std::sync::RwLock;
-lazy_static!{
-    pub static ref CONSTANT_POOL: RwLock<ConstantPool> = RwLock::new(ConstantPool{
-        pool_of_int:(TAG_INT,HashMap::new()),
-        pool_of_num:(TAG_NUM,HashMap::new()),
-        pool_of_sym:(TAG_SYM,HashMap::new()),
-        pool_of_simdchar:(TAG_SIMDCHAR,HashMap::new()),
-        pool_of_simdint:(TAG_SIMDINT,HashMap::new()),
-        pool_of_simdnum:(TAG_SIMDNUM,HashMap::new()),
-        pool_of_row:(TAG_ROW,HashMap::new())
+lazy_static! {
+    pub static ref CONSTANT_POOL: RwLock<ConstantPool> = RwLock::new(ConstantPool {
+        pool_of_int: (TAG_INT, HashMap::new()),
+        pool_of_num: (TAG_NUM, HashMap::new()),
+        pool_of_sym: (TAG_SYM, HashMap::new()),
+        pool_of_simdchar: (TAG_SIMDCHAR, HashMap::new()),
+        pool_of_simdint: (TAG_SIMDINT, HashMap::new()),
+        pool_of_simdnum: (TAG_SIMDNUM, HashMap::new()),
+        pool_of_row: (TAG_ROW, HashMap::new())
     });
 }
 #[repr(C)]
@@ -74,16 +89,6 @@ impl std::fmt::Display for Header {
     }
 }
 
-fn clone_into_array<A, T>(slice: &[T]) -> A
-where
-    A: Sized + Default + AsMut<[T]>,
-    T: Clone,
-{
-    let mut a = Default::default();
-    <A as AsMut<[T]>>::as_mut(&mut a).clone_from_slice(slice);
-    a
-}
-
 impl Header {
     pub fn validate(&self) -> bool {
         let mut status = true;
@@ -114,17 +119,27 @@ pub struct LocalVar {
     end_pc: VMInt,
 }
 
-#[derive(Clone,Debug,PartialEq)]
-pub enum Constant{
+#[derive(Clone, Debug, PartialEq)]
+pub enum Constant {
+    Null,
+    Bool(u8),
+    // up no need pool just need to implement in row
     Int(VMInt),
     Num(VMNum),
     Sym(VMSym),
 
-    SIMDInt(VMInt,VMInt,VMInt,VMInt),
-    SIMDNum(VMNum,VMNum,VMNum,VMNum),
-    SIMDChar(VMChar,VMChar,VMChar,VMChar),
+    SIMDInt(VMInt, VMInt, VMInt, VMInt),
+    SIMDNum(VMNum, VMNum, VMNum, VMNum),
+    SIMDChar(VMChar, VMChar, VMChar, VMChar),
 
-    Row() // TODO：完成这厮
+    Row(Row), // TODO：完成这厮
+}
+
+#[derive(Clone,PartialEq,Debug)]
+pub struct Row{
+    pub arr:Vec<Constant>,
+    pub row:HashMap<VMSym,Constant>,
+    pub is_arr:bool
 }
 
 // layout: types_len (tag len (uuid:data)*)*
@@ -132,14 +147,14 @@ pub enum Constant{
 // types_len is how many types in this constant pool
 #[repr(C)]
 #[derive(Debug)]
-pub struct ConstantPool{
-    pub pool_of_int:(u8,HashMap<u32,Constant>),
-    pub pool_of_num:(u8,HashMap<u32,Constant>),
-    pub pool_of_sym:(u8,HashMap<u32,Constant>),
-    pub pool_of_simdchar:(u8,HashMap<u32,Constant>),
-    pub pool_of_simdint:(u8,HashMap<u32,Constant>),
-    pub pool_of_simdnum:(u8,HashMap<u32,Constant>),
-    pub pool_of_row:(u8,HashMap<u32,Constant>)
+pub struct ConstantPool {
+    pub pool_of_int: (u8, HashMap<u32, Constant>),
+    pub pool_of_num: (u8, HashMap<u32, Constant>),
+    pub pool_of_sym: (u8, HashMap<u32, Constant>),
+    pub pool_of_simdchar: (u8, HashMap<u32, Constant>),
+    pub pool_of_simdint: (u8, HashMap<u32, Constant>),
+    pub pool_of_simdnum: (u8, HashMap<u32, Constant>),
+    pub pool_of_row: (u8, HashMap<u32, Constant>),
 }
 
 #[repr(C)]
@@ -189,15 +204,15 @@ impl std::fmt::Display for Prototype {
         writeln!(f,"===== Prototype =====\n  < from line: {} ,to line: {} > ( params: {} ,is_vargs?: {} )\n  {{ stack size: {} ,number of instructions: {} }}\n varialbles: {} closure_caps: {} functions: {}\n\tinstructions: \n{}",self.line_start,self.line_end,self.params,self.is_vargs!=0,self.stack_size,self.instruction_table.len(),self.debug_local_variables.len(),self.closure_caps.len(),self.protos.len(),instructions)
     }
 }
-pub fn get_constant(tag:u8,uuid:u32) -> Constant {
-    match tag{
+pub fn get_constant(tag: u8, uuid: u32) -> Constant {
+    match tag {
         TAG_INT => CONSTANT_POOL.read().unwrap().pool_of_int.1[&uuid].clone(),
         TAG_NUM => CONSTANT_POOL.read().unwrap().pool_of_num.1[&uuid].clone(),
         TAG_SYM => CONSTANT_POOL.read().unwrap().pool_of_sym.1[&uuid].clone(),
         TAG_SIMDCHAR => CONSTANT_POOL.read().unwrap().pool_of_simdchar.1[&uuid].clone(),
         TAG_SIMDINT => CONSTANT_POOL.read().unwrap().pool_of_simdint.1[&uuid].clone(),
         TAG_SIMDNUM => CONSTANT_POOL.read().unwrap().pool_of_simdnum.1[&uuid].clone(),
-        TAG_ROW => {unimplemented!()},
-        _ => {unimplemented!()}
+        TAG_ROW => unimplemented!(),
+        _ => unimplemented!(),
     }
 }

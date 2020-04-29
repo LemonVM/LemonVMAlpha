@@ -2,6 +2,15 @@ pub struct Reader {
     data: *const u8,
     pos: usize,
 }
+fn clone_into_array<A, T>(slice: &[T]) -> A
+where
+    A: Sized + Default + AsMut<[T]>,
+    T: Clone,
+{
+    let mut a = Default::default();
+    <A as AsMut<[T]>>::as_mut(&mut a).clone_from_slice(slice);
+    a
+}
 impl Reader {
     pub fn new(data: *const u8) -> Reader {
         Reader { data, pos: 0 }
@@ -14,7 +23,6 @@ impl Reader {
             b
         }
     }
-    //TODO: use with gc
     pub fn read_bytes(&mut self, len: usize) -> *const u8 {
         unsafe {
             let buffer = std::alloc::alloc(std::alloc::Layout::new::<u8>());
@@ -38,7 +46,7 @@ impl Reader {
     }
 
     pub fn read_vm_symbol(&mut self) -> super::VMSym {
-        self.read_vec(|f| f.read_vm_char())
+        super::VMSym(self.read_vec(|f| f.read_vm_char()))
     }
 
     pub fn read_vec<T, F>(&mut self, f: F) -> Vec<T>
@@ -62,7 +70,7 @@ impl Reader {
             let sizeof_vm_int = self.read_byte();
             let sizeof_vm_number = self.read_byte();
             super::Header {
-                sig: super::clone_into_array(&*sig),
+                sig: clone_into_array(&*sig),
                 version,
                 instruction_size,
                 sizeof_vm_char,
@@ -75,29 +83,140 @@ impl Reader {
     pub fn read_constant_pool(data: *const u8, len: usize) {
         let mut reader = Reader::new(data);
         let mut types = reader.read_byte();
-        for i in 0..types{
+        for i in 0..types {
             let tag = reader.read_byte();
             let len = reader.read_vm_int();
-            for j in 0..len{
-                use super::*;
+            for j in 0..len {
                 use super::Constant::*;
-                match tag{
+                use super::*;
+                match tag {
                     TAG_INT => {
-                        super::CONSTANT_POOL.write().unwrap().pool_of_int.1.insert(reader.read_vm_int(),Int(reader.read_vm_int()));
-                    },
+                        super::CONSTANT_POOL
+                            .write()
+                            .unwrap()
+                            .pool_of_int
+                            .1
+                            .insert(reader.read_vm_int(), reader.read_constant(tag));
+                    }
                     TAG_NUM => {
-                        super::CONSTANT_POOL.write().unwrap().pool_of_num.1.insert(reader.read_vm_int(),Num(reader.read_vm_number()));
-                    },
+                        super::CONSTANT_POOL
+                            .write()
+                            .unwrap()
+                            .pool_of_num
+                            .1
+                            .insert(reader.read_vm_int(), reader.read_constant(tag));
+                    }
                     TAG_SYM => {
-                        super::CONSTANT_POOL.write().unwrap().pool_of_sym.1.insert(reader.read_vm_int(),Sym(reader.read_vm_symbol()));
-                    },
-                    TAG_SIMDCHAR => {super::CONSTANT_POOL.write().unwrap().pool_of_simdchar.1.insert(reader.read_vm_int(),SIMDChar(reader.read_vm_char(),reader.read_vm_char(),reader.read_vm_char(),reader.read_vm_char()));},
-                    TAG_SIMDINT => {super::CONSTANT_POOL.write().unwrap().pool_of_simdint.1.insert(reader.read_vm_int(),SIMDInt(reader.read_vm_int(),reader.read_vm_int(),reader.read_vm_int(),reader.read_vm_int()));},
-                    TAG_SIMDNUM => {super::CONSTANT_POOL.write().unwrap().pool_of_simdnum.1.insert(reader.read_vm_int(),SIMDNum(reader.read_vm_number(),reader.read_vm_number(),reader.read_vm_number(),reader.read_vm_number()));},
-                    TAG_ROW => {unimplemented!()},
-                    _ => {unimplemented!()}
+                        super::CONSTANT_POOL
+                            .write()
+                            .unwrap()
+                            .pool_of_sym
+                            .1
+                            .insert(reader.read_vm_int(), reader.read_constant(tag));
+                    }
+                    TAG_SIMDCHAR => {
+                        super::CONSTANT_POOL
+                            .write()
+                            .unwrap()
+                            .pool_of_simdchar
+                            .1
+                            .insert(reader.read_vm_int(), reader.read_constant(tag));
+                    }
+                    TAG_SIMDINT => {
+                        super::CONSTANT_POOL
+                            .write()
+                            .unwrap()
+                            .pool_of_simdint
+                            .1
+                            .insert(reader.read_vm_int(), reader.read_constant(tag));
+                    }
+                    TAG_SIMDNUM => {
+                        super::CONSTANT_POOL
+                            .write()
+                            .unwrap()
+                            .pool_of_simdnum
+                            .1
+                            .insert(reader.read_vm_int(), reader.read_constant(tag));
+                    }
+                    TAG_ROW => {
+                        super::CONSTANT_POOL
+                            .write()
+                            .unwrap()
+                            .pool_of_row
+                            .1
+                            .insert(reader.read_vm_int(), reader.read_constant(tag));
+                    }
+                    _ => unimplemented!(),
                 }
             }
+        }
+    }
+    pub fn read_constant(&mut self, tag: u8) -> super::Constant {
+        use super::Constant::*;
+        use super::*;
+        if tag == TAG_ROW {
+            let is_arr = self.read_byte() == 0x00;
+            // 0x00 -> array, 0xff -> row
+            // 0x00         len         (flag  data)
+            // 0xFF         len         ( vmsym    flag      data     )*
+            // row start    row size      key     value type  value
+            if is_arr {
+                let arr = self.read_vec(|f| {
+                    let flag = f.read_byte();
+                    f.read_constant(flag)
+                });
+                return Row(super::Row {
+                    arr,
+                    row: std::collections::HashMap::new(),
+                    is_arr,
+                });
+            } else {
+                let len = self.read_vm_int();
+                let mut row = std::collections::HashMap::new();
+                for i in 0..len {
+                    let sym = self.read_vm_symbol();
+                    let flag = self.read_byte();
+                    row.insert(sym, self.read_constant(flag));
+                }
+                return Row(super::Row {
+                    arr: vec![],
+                    row,
+                    is_arr,
+                });
+            }
+        } else if tag == TAG_NULL {
+            return Null;
+        } else if tag == TAG_BOOL {
+            return Bool(self.read_byte());
+        } else if tag == TAG_INT {
+            return Int(self.read_vm_int());
+        } else if tag == TAG_NUM {
+            return Num(self.read_vm_number());
+        } else if tag == TAG_SYM {
+            return Sym(self.read_vm_symbol());
+        } else if tag == TAG_SIMDCHAR {
+            return SIMDChar(
+                self.read_vm_char(),
+                self.read_vm_char(),
+                self.read_vm_char(),
+                self.read_vm_char(),
+            );
+        } else if tag == TAG_SIMDINT {
+            return SIMDInt(
+                self.read_vm_int(),
+                self.read_vm_int(),
+                self.read_vm_int(),
+                self.read_vm_int(),
+            );
+        } else if tag == TAG_SIMDNUM {
+            return SIMDNum(
+                self.read_vm_number(),
+                self.read_vm_number(),
+                self.read_vm_number(),
+                self.read_vm_number(),
+            );
+        } else {
+            unimplemented!()
         }
     }
     pub fn read_proto(&mut self) -> super::Prototype {
@@ -111,18 +230,18 @@ impl Reader {
             stack_size: self.read_byte(),
             instruction_table: self.read_vec(|r| {
                 let tag = r.read_byte();
-                match tag{
+                match tag {
                     0x00 => r.read_bytes(4),
                     0xFF => {
-                        r.pos+=1; //skip op
+                        r.pos += 1; //skip op
                         let offset = r.read_byte();
                         let len = r.read_byte();
                         let total_len = offset + len;
                         r.pos -= 3;
                         // op len off data
-                        r.read_bytes((total_len+3) as usize)
+                        r.read_bytes((total_len + 3) as usize)
                     }
-                    _ => unimplemented!()
+                    _ => unimplemented!(),
                 }
             }),
             // lex_constant: CONSTANT_POOL.read().unwrap(),

@@ -51,5 +51,4 @@ fn main() {
     println!("before execute {:?}",state.stack);
     state.execute();
     println!("after execute {:?}\n",state.stack);
-
 }

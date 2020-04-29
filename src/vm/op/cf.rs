@@ -1,7 +1,7 @@
 use super::*;
 // ===== CONTROL FLOW ===== 0x20-0x3F
 //pub const CONCAT:u8 =0x4d;
-pub const JMP: u8 = 0x20;
+pub const JMP: u8 = 0x20;　// TODO: label of line?
 pub const UFCALL: u8 = 0x21;
 pub const CALL: u8 = 0x22;
 pub const TAILCALL: u8 = 0x23;

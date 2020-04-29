@@ -25,7 +25,7 @@ impl Block{
         }
     }
 }
-
+impl super::Heap for Heap{}
 impl Heap{
     pub fn new()->Heap{
         Heap{
