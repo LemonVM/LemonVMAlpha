@@ -219,6 +219,36 @@ impl Reader {
             unimplemented!()
         }
     }
+    pub fn read_instructions(&mut self) -> Vec<*const u8> {
+        self.read_vec(|r| {
+            let tag = r.read_byte();
+            match tag {
+                0x00 => r.read_bytes(4),
+                0xFF => {
+                    r.pos += 1; //skip op
+                    let offset = r.read_byte();
+                    let len = r.read_byte();
+                    let total_len = offset + len;
+                    r.pos -= 3;
+                    // op len off data
+                    r.read_bytes((total_len + 3) as usize)
+                }
+                _ => unimplemented!(),
+            }
+        })
+    }
+    pub fn read_labels(&mut self) -> Vec<super::Label> {
+        let label_num = self.read_vm_char();
+        let mut labels = vec![];
+        for i in 0..label_num {
+            let label = super::Label {
+                label: self.read_vm_char(),
+                instructions: self.read_instructions(),
+            };
+            labels.push(label);
+        }
+        labels
+    }
     pub fn read_proto(&mut self) -> super::Prototype {
         super::Prototype {
             name: self.read_vm_symbol(),
@@ -228,22 +258,7 @@ impl Reader {
             params: self.read_byte(),
             is_vargs: self.read_byte(),
             stack_size: self.read_byte(),
-            instruction_table: self.read_vec(|r| {
-                let tag = r.read_byte();
-                match tag {
-                    0x00 => r.read_bytes(4),
-                    0xFF => {
-                        r.pos += 1; //skip op
-                        let offset = r.read_byte();
-                        let len = r.read_byte();
-                        let total_len = offset + len;
-                        r.pos -= 3;
-                        // op len off data
-                        r.read_bytes((total_len + 3) as usize)
-                    }
-                    _ => unimplemented!(),
-                }
-            }),
+            instruction_table: self.read_labels(),
             // lex_constant: CONSTANT_POOL.read().unwrap(),
             closure_caps: self.read_vec(|r| r.read_closure_cap()),
             protos: self.read_vec(|r| r.read_proto()),
@@ -252,19 +267,6 @@ impl Reader {
             debug_closure_cap_names: self.read_vec(|r| r.read_vm_symbol()),
         }
     }
-
-    // pub fn read_constant(&mut self) -> super::Constant {
-    //     let tag = self.read_byte();
-    //     match tag {
-    //         super::TAG_BOOL => super::Constant::Bool(self.read_byte() != 0),
-    //         super::TAG_CHAR => super::Constant::Char(self.read_vm_char()),
-    //         super::TAG_INT => super::Constant::Int(self.read_vm_int()),
-    //         super::TAG_NUM => super::Constant::Num(self.read_vm_number()),
-    //         super::TAG_SYM => super::Constant::Sym(self.read_vm_symbol()),
-    //         _ => panic!("corrupted!"),
-    //     }
-    // }
-
     pub fn read_closure_cap(&mut self) -> super::ClosureCap {
         super::ClosureCap {
             instack: self.read_byte(),

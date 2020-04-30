@@ -1,4 +1,5 @@
 // ===== STACK ===== 0x40-0x5F
+use super::*;
 // CC stands for closre capture
 pub const GETCC: u8 = 0x40;
 pub const SETCC: u8 = 0x41;
@@ -17,4 +18,5 @@ pub const SWAPSTACK: u8 = 0x4a;
 
 pub const DUP1: u8 = 0x4b;
 pub const DUP2: u8 = 0x4c;
-pub const DUP3: u8 = 0x4d;
+
+pub const CLOSURE_OP: Op = Op::FIX(FixOp{op:CLOSURE,opmode:FixOpMode::A(RS)});

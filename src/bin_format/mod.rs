@@ -20,12 +20,12 @@ pub const TAG_SIMDINT: u8 = 0x07;
 pub const TAG_SIMDNUM: u8 = 0x08;
 // ROW in constant pool ROW will only consist of pure data above
 pub const TAG_ROW: u8 = 0x09;
-pub const TAG_USERDATA:u8 = 0x10;
+pub const TAG_USERDATA: u8 = 0x10;
 
 pub type VMChar = u16;
 pub type VMInt = u32;
 pub type VMNum = f64;
-#[derive(Clone, PartialEq,Eq,Hash)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct VMSym(pub Vec<VMChar>);
 impl std::fmt::Display for VMSym {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -135,11 +135,11 @@ pub enum Constant {
     Row(Row), // TODO：完成这厮
 }
 
-#[derive(Clone,PartialEq,Debug)]
-pub struct Row{
-    pub arr:Vec<Constant>,
-    pub row:HashMap<VMSym,Constant>,
-    pub is_arr:bool
+#[derive(Clone, PartialEq, Debug)]
+pub struct Row {
+    pub arr: Vec<Constant>,
+    pub row: HashMap<VMSym, Constant>,
+    pub is_arr: bool,
 }
 
 // layout: types_len (tag len (uuid:data)*)*
@@ -156,7 +156,12 @@ pub struct ConstantPool {
     pub pool_of_simdnum: (u8, HashMap<u32, Constant>),
     pub pool_of_row: (u8, HashMap<u32, Constant>),
 }
-
+#[repr(C)]
+#[derive(Clone, Debug)]
+pub struct Label {
+    pub label: u16,
+    pub instructions: Vec<*const u8>,
+}
 #[repr(C)]
 #[derive(Clone, Debug)]
 // now directly read from global constant pool
@@ -164,16 +169,16 @@ pub struct Prototype {
     // use uuid for finding constant in common constant pool
     // could reduce the size of single binary file
     name: VMSym,
-    uuid: u32,
+    pub uuid: u32,
     line_start: VMInt,
     line_end: VMInt,
     params: u8,
     is_vargs: u8,
     stack_size: u8,
-    pub instruction_table: Vec<*const u8>,
+    pub instruction_table: Vec<Label>,
     // closure captured outer variable
     closure_caps: Vec<ClosureCap>,
-    protos: Vec<Prototype>,
+    pub protos: Vec<Prototype>,
     // -- debug
     debug_line_info: Vec<VMInt>,
     debug_local_variables: Vec<LocalVar>,
@@ -201,7 +206,25 @@ impl std::fmt::Display for Prototype {
             )
             .as_str();
         }
-        writeln!(f,"===== Prototype =====\n  < from line: {} ,to line: {} > ( params: {} ,is_vargs?: {} )\n  {{ stack size: {} ,number of instructions: {} }}\n varialbles: {} closure_caps: {} functions: {}\n\tinstructions: \n{}",self.line_start,self.line_end,self.params,self.is_vargs!=0,self.stack_size,self.instruction_table.len(),self.debug_local_variables.len(),self.closure_caps.len(),self.protos.len(),instructions)
+        writeln!(
+            f,
+            "===== Prototype =====
+< from line: {} ,to line: {} > ( params: {} ,is_vargs?: {} )
+{{ stack size: {} ,number of labels: {} }}
+varialbles: {} closure_caps: {} functions: {}
+instructions:
+{}",
+            self.line_start,
+            self.line_end,
+            self.params,
+            self.is_vargs != 0,
+            self.stack_size,
+            self.instruction_table.len(),
+            self.debug_local_variables.len(),
+            self.closure_caps.len(),
+            self.protos.len(),
+            instructions
+        )
     }
 }
 pub fn get_constant(tag: u8, uuid: u32) -> Constant {

@@ -13,6 +13,22 @@ pub enum Type {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Value(PrimeValue, Type);
 
+#[derive(Debug,Clone)]
+pub struct Closure{
+    proto: Box<super::super::bin_format::Prototype>,
+    current_label_number: u16 // this is not the label name
+}
+impl Closure{
+    fn new(proto:Box<super::super::bin_format::Prototype>)->Closure{
+        Closure{proto,current_label_number:0}
+    }
+}
+impl PartialEq for Closure{
+    fn eq(&self, other: &Self) -> bool {
+        (*(self.proto)).uuid == (*(other.proto)).uuid
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum PrimeValue {
     Null,
@@ -27,7 +43,7 @@ pub enum PrimeValue {
     SIMDChar(VMChar, VMChar, VMChar, VMChar),
     UserData(*mut u8), //TODO:完成这玩意儿
     Row(Row),
-    Closure(), //TODO: 完成这玩意儿
+    Closure(Closure), //TODO: 完成这玩意儿
     Thread(),  //TODO: 完成这玩意儿
 }
 

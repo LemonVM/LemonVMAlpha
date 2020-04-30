@@ -9,13 +9,17 @@ use arrayvec::*;
 // ========================================================
 // well ignore me i wont write asm by my self would I?
 // but we only use u8 for index ~ so ~
+
 #[derive(Debug)]
 pub struct Stack{
     pub stack:ArrayVec<[Value;256]>,
+    pub closure:Box<Closure>,
+    pub pc: usize,
+    pub ir: *const u8,
 }
 impl Stack{
-    pub fn new()->Stack{
-        Stack{stack:ArrayVec::new()}
+    pub fn new(proto:Box<super::super::super::bin_format::Prototype>)->Stack{
+        Stack{stack:ArrayVec::new(),pc:0,ir:std::ptr::null(),closure:Box::new(Closure::new(proto))} //FIXME:GC this will be allocated in heap
     }
 
     pub fn top(&self) -> isize {

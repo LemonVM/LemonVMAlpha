@@ -103,6 +103,7 @@ pub const VI:u8 = 0xFF; // only use for jump
 
 pub mod vm;
 pub mod load;
+pub mod cf;
 pub mod arith;
 pub mod stack;
 pub mod comp;
