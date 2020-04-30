@@ -58,7 +58,7 @@ fn ProtoFromByteCode() {
     assert_eq!(proto.line_end, 3);
     assert_eq!(get_constant(0x03,1), Constant::Int(1));
     assert_eq!(proto.instruction_table.len(), 0);
-    assert_eq!(proto.protos.len(), 0);
+    assert_eq!(proto.const_proto_refs.len(), 0);
 }
 
 #[test]

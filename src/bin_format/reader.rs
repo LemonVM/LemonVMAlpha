@@ -69,17 +69,10 @@ impl Reader {
             let sizeof_vm_char = self.read_byte();
             let sizeof_vm_int = self.read_byte();
             let sizeof_vm_number = self.read_byte();
-            super::Header {
-                sig: clone_into_array(&*sig),
-                version,
-                instruction_size,
-                sizeof_vm_char,
-                sizeof_vm_int,
-                sizeof_vm_number,
-            }
+            super::Header { sig: clone_into_array(&*sig), version, instruction_size, sizeof_vm_char, sizeof_vm_int, sizeof_vm_number, }
         }
     }
-    // assine value to global constant pool
+    // assign value to global constant pool
     pub fn read_constant_pool(data: *const u8, len: usize) {
         let mut reader = Reader::new(data);
         let mut types = reader.read_byte();
@@ -215,7 +208,10 @@ impl Reader {
                 self.read_vm_number(),
                 self.read_vm_number(),
             );
-        } else {
+        } else if tag == TAG_PROTO{
+            return Proto(self.read_proto())
+        }
+        else {
             unimplemented!()
         }
     }
@@ -261,7 +257,7 @@ impl Reader {
             instruction_table: self.read_labels(),
             // lex_constant: CONSTANT_POOL.read().unwrap(),
             closure_caps: self.read_vec(|r| r.read_closure_cap()),
-            protos: self.read_vec(|r| r.read_proto()),
+            const_proto_refs: self.read_vec(|r| (r.read_byte(),r.read_vm_int())),
             debug_line_info: self.read_vec(|r| r.read_vm_int()),
             debug_local_variables: self.read_vec(|r| r.read_loc_var()),
             debug_closure_cap_names: self.read_vec(|r| r.read_vm_symbol()),

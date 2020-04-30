@@ -21,6 +21,7 @@ pub const TAG_SIMDNUM: u8 = 0x08;
 // ROW in constant pool ROW will only consist of pure data above
 pub const TAG_ROW: u8 = 0x09;
 pub const TAG_USERDATA: u8 = 0x10;
+pub const TAG_PROTO:u8 = 0x11;
 
 pub type VMChar = u16;
 pub type VMInt = u32;
@@ -51,7 +52,8 @@ lazy_static! {
         pool_of_simdchar: (TAG_SIMDCHAR, HashMap::new()),
         pool_of_simdint: (TAG_SIMDINT, HashMap::new()),
         pool_of_simdnum: (TAG_SIMDNUM, HashMap::new()),
-        pool_of_row: (TAG_ROW, HashMap::new())
+        pool_of_row: (TAG_ROW, HashMap::new()),
+        pool_of_proto: (TAG_PROTO, HashMap::new())
     });
 }
 #[repr(C)]
@@ -131,7 +133,7 @@ pub enum Constant {
     SIMDInt(VMInt, VMInt, VMInt, VMInt),
     SIMDNum(VMNum, VMNum, VMNum, VMNum),
     SIMDChar(VMChar, VMChar, VMChar, VMChar),
-
+    Proto(Prototype),
     Row(Row), // TODO：完成这厮
 }
 
@@ -155,6 +157,7 @@ pub struct ConstantPool {
     pub pool_of_simdint: (u8, HashMap<u32, Constant>),
     pub pool_of_simdnum: (u8, HashMap<u32, Constant>),
     pub pool_of_row: (u8, HashMap<u32, Constant>),
+    pub pool_of_proto:(u8, HashMap<u32, Prototype>)
 }
 #[repr(C)]
 #[derive(Clone, Debug)]
@@ -178,12 +181,15 @@ pub struct Prototype {
     pub instruction_table: Vec<Label>,
     // closure captured outer variable
     closure_caps: Vec<ClosureCap>,
-    pub protos: Vec<Prototype>,
+    pub const_proto_refs: Vec<(u8,u32)>,
     // -- debug
     debug_line_info: Vec<VMInt>,
     debug_local_variables: Vec<LocalVar>,
     debug_closure_cap_names: Vec<VMSym>,
 }
+unsafe impl Send for Prototype{}
+unsafe impl Sync for Prototype{}
+
 impl PartialEq for Prototype {
     fn eq(&self, other: &Prototype) -> bool {
         return self.uuid == other.uuid;
@@ -222,7 +228,7 @@ instructions:
             self.instruction_table.len(),
             self.debug_local_variables.len(),
             self.closure_caps.len(),
-            self.protos.len(),
+            self.const_proto_refs.len(),
             instructions
         )
     }

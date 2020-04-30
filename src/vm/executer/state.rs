@@ -55,13 +55,11 @@ impl State {
     }
 
     pub fn load_proto(&mut self, idx: usize) {
-        let proto = Box::new(self.stack().closure.proto.protos[idx].clone());
-        let closure = super::Closure {
-            proto,
-            current_label_number: 0,
-        };
+        let proto = Box::new(self.stack().closure.proto.const_proto_refs[idx].clone());
         self.stack()
-            .push(super::Value::from(super::PrimeValue::Closure(closure)));
+            .push(super::Value::from(super::PrimeValue::from(
+                super::super::super::bin_format::get_constant(proto.0, proto.1),
+            )));
     }
     pub fn execute(&mut self) {
         loop {
@@ -111,16 +109,25 @@ impl State {
                         use super::super::op::cf::*;
                         match iins {
                             JMP => {
-                                let value = unsafe{*(ins.add(1) as *const u16)};
-                                let label = self.stack().closure.proto.instruction_table.iter().position(|r| r.label == value).expect("ERROR! LABEL DOES NOT EXIST");
+                                let value = unsafe { *(ins.add(1) as *const u16) };
+                                let label = self
+                                    .stack()
+                                    .closure
+                                    .proto
+                                    .instruction_table
+                                    .iter()
+                                    .position(|r| r.label == value)
+                                    .expect("ERROR! LABEL DOES NOT EXIST");
                                 self.stack().closure.current_label_number = label as u16;
                                 *self.pc() = 0;
-                            },
-                            UFCALL => {},
-                            CALL => {},
-                            TAILCALL => {},
-                            RET => {return;},
-                            RETURN => {},
+                            }
+                            UFCALL => {}
+                            CALL => {}
+                            TAILCALL => {}
+                            RET => {
+                                return;
+                            }
+                            RETURN => {}
                             _ => unimplemented!(),
                         }
                         break;

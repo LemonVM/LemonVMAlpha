@@ -87,6 +87,7 @@ impl From<super::super::bin_format::Constant> for PrimeValue {
             }
 
             super::super::bin_format::Constant::Row(r) => Self::Row(Row::from(r)),
+            super::super::bin_format::Constant::Proto(p) => Self::Closure(Closure::new(Box::new(p)))
         }
     }
 }
