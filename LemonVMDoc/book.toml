@@ -1,0 +1,6 @@
+[book]
+authors = ["LemonHX"]
+language = "zh-cn"
+multilingual = false
+src = "src"
+title = "LemonVM Documentation"
