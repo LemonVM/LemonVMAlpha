@@ -123,7 +123,7 @@ impl From<PrimeValue> for Type {
                     Self::Poly(t)
                 }
             }
-            // Closure() => {},//TODO: 完成这玩意儿
+            Closure(c) => Self::Mono(TAG_PROTO),//TODO: 完成这玩意儿
             //Thread(),//TODO: 完成这玩意儿
             _ => unimplemented!(),
         }

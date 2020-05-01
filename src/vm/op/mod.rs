@@ -2,9 +2,9 @@
 pub enum FixOpMode {
     None,
     A(u8),      // 0x00 0x00 0x00
+    AX(u16),    // 0x00
     AB(u8, u8), // 0x00
     ABX(u8, u16),
-    AIBX(u8, u16),
     ABC(u8, u8, u8),
 }
 impl FixOpMode{
@@ -37,16 +37,16 @@ impl FixOpMode{
             panic!("ERROR! INSTRUCTION IS NOT AT MODE ABX");
         }
     }
-    pub fn get_aibx(&self,ins:u32)->(u8,u16){
-        use FixOpMode::*;
-        if let AIBX(a,b) = &self {
-            let a  = (ins >> 8) as u8;
-            let b =  (ins >> 16) as u16;
-            (a,b)
-        }else{
-            panic!("ERROR! INSTRUCTION IS NOT AT MODE AIBX");
-        }
-    }
+    // pub fn get_aibx(&self,ins:u32)->(u8,u16){
+    //     use FixOpMode::*;
+    //     if let AIBX(a,b) = &self {
+    //         let a  = (ins >> 8) as u8;
+    //         let b =  (ins >> 16) as u16;
+    //         (a,b)
+    //     }else{
+    //         panic!("ERROR! INSTRUCTION IS NOT AT MODE AIBX");
+    //     }
+    // }
     pub fn get_abc(&self,ins:u32)->(u8,u8,u8){
         use FixOpMode::*;
         if let ABC(a,b,c) = &self {
@@ -96,10 +96,10 @@ impl Op {
 
 pub const RS:u8 = 0x01; // register ref stack
 pub const RC:u8 = 0x02; // register ref constant table
-pub const RP:u8 = 0x03; // register ref sub protos
+pub const RP:u16 = 0x0300; // register ref sub protos
 pub const RCC:u8 = 0x04; // register ref closures
 
-pub const VI:u8 = 0xFF; // only use for jump
+pub const VI:u16 = 0xFF00; // only use for jump
 
 pub mod vm;
 pub mod load;

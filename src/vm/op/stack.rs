@@ -18,5 +18,7 @@ pub const SWAPSTACK: u8 = 0x4a;
 
 pub const DUP1: u8 = 0x4b;
 pub const DUP2: u8 = 0x4c;
+pub const FIXTOP: u8 = 0x4d;
 
-pub const CLOSURE_OP: Op = Op::FIX(FixOp{op:CLOSURE,opmode:FixOpMode::A(RS)});
+pub const CLOSURE_OP: Op = Op::FIX(FixOp{op:CLOSURE,opmode:FixOpMode::AX(RP)});
+pub const FIXTOP_OP: Op = Op::FIX(FixOp{op:FIXTOP,opmode:FixOpMode::A(RS)});

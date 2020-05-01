@@ -16,17 +16,21 @@ pub struct Stack{
     pub closure:Box<Closure>,
     pub pc: usize,
     pub ir: *const u8,
+    pub fixed_top : usize
 }
 impl Stack{
+    pub fn new_from_closure(closure:Box<Closure>)->Stack{
+        Stack{stack:ArrayVec::new(),pc:0,ir:std::ptr::null(),closure,fixed_top:0}
+    }
     pub fn new(proto:Box<super::super::super::bin_format::Prototype>)->Stack{
-        Stack{stack:ArrayVec::new(),pc:0,ir:std::ptr::null(),closure:Box::new(Closure::new(proto))} //FIXME:GC this will be allocated in heap
+        Stack{stack:ArrayVec::new(),pc:0,ir:std::ptr::null(),closure:Box::new(Closure::new(proto)),fixed_top:0} //FIXME:GC this will be allocated in heap
     }
 
     pub fn top(&self) -> isize {
         self.stack.len() as isize
     }
 
-    pub fn reserve_capacity(&mut self, n: usize) -> bool {
+    pub fn check_ramain_enougth(&mut self, n: usize) -> bool {
         self.stack.remaining_capacity() + n > self.stack.capacity()
     }
 
@@ -74,84 +78,26 @@ impl Stack{
             to -= 1;
         }
     }
-
-    fn rotate(&mut self, idx: isize, n: isize) {
-        let abs_idx = self.abs_index(idx);
-        if abs_idx < 0 || !self.is_valid_abs(abs_idx){
-            panic!("ERROR! INVALID INDEX {}",idx);
+    pub fn fix_to_top(&mut self,id:usize){
+        if self.fixed_top == 0{
+            self.fixed_top = self.stack.len().clone() -1;
+            self.stack.swap(self.fixed_top , id);
+        }else{
+            self.fixed_top -= 1;
+            self.stack.swap(self.fixed_top , id);
         }
-
-        let t = self.top() - 1; /* end of stack segment being rotated */
-        let p = abs_idx - 1; /* start of segment */
-        let m = if n >= 0 { t - n } else { p - n - 1 }; /* end of prefix */
-        self.reverse(p as usize, m as usize); /* reverse the prefix with length 'n' */
-        self.reverse(m as usize + 1, t as usize); /* reverse the suffix */
-        self.reverse(p as usize, t as usize); /* reverse the entire segment */
     }
-    // fn is_null (&self,idx:isize)->bool{
-    //     self.get(idx) == Null
-    // }
-    // fn is_bool (&self,idx:isize)->bool{
-    //     if let Bool(_) = self.get(idx){
-    //         return true;
-    //     }else{
-    //         return false;
-    //     }
-    // }
-    // fn is_char (&self,idx:isize)->bool{
-    //     if let Char(_) = self.get(idx){
-    //         return true;
-    //     }else{
-    //         return false;
-    //     }
-    // }
-    // fn is_int (&self,idx:isize)->bool{
-    //     if let Int(_) = self.get(idx){
-    //         return true;
-    //     }else{
-    //         return false;
-    //     }
-    // }
-    // fn is_num (&self,idx:isize)->bool{
-    //     if let Num(_) = self.get(idx){
-    //         return true;
-    //     }else{
-    //         return false;
-    //     }
-    // }
-    // fn is_sym (&self,idx:isize)->bool{
-    //     if let Sym(_) = self.get(idx){
-    //         return true;
-    //     }else{
-    //         return false;
-    //     }
-    // }
-    // fn is_user_data (&self,idx:isize)->bool{
-    //     if let UserData(_) = self.get(idx){
-    //         return true;
-    //     }else{
-    //         return false;
-    //     }
-    // }
-    // fn is_row (&self,idx:isize)->bool{
-    //     if let Row() = self.get(idx){
-    //         return true;
-    //     }else{
-    //         return false;
-    //     }
-    // }
-    // fn is_closure (&self,idx:isize)->bool{
-    //     if let Closure() = self.get(idx){
-    //         return true;
-    //     }else{
-    //         return false;
-    //     }
-    // }
-    // fn is_thread (&self,idx:isize)->bool{
-    //     if let Thread() = self.get(idx){
-    //         return true;
-    //     }else{
-    //         return false;
-    //     }
-    // }
+    // because of a,b,c,d,e = f() and f fixed tops will be e,d,c,b,a
+    pub fn fixed_tops(&mut self)->Vec<Value>{
+        if self.fixed_top == 0{
+            vec!()
+        }else{
+            let len = self.stack.len();
+            let mut ret = vec!();
+            for v in self.stack[self.fixed_top..len].iter().rev(){
+                ret.push(v.clone());
+            }
+            ret
+        }
+    }
 }

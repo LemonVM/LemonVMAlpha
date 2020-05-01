@@ -139,6 +139,14 @@ impl Reader {
                             .1
                             .insert(reader.read_vm_int(), reader.read_constant(tag));
                     }
+                    TAG_PROTO => {
+                        super::CONSTANT_POOL
+                            .write()
+                            .unwrap()
+                            .pool_of_proto
+                            .1
+                            .insert(reader.read_vm_int(), reader.read_constant(tag));
+                    }
                     _ => unimplemented!(),
                 }
             }

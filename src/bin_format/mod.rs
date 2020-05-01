@@ -157,7 +157,7 @@ pub struct ConstantPool {
     pub pool_of_simdint: (u8, HashMap<u32, Constant>),
     pub pool_of_simdnum: (u8, HashMap<u32, Constant>),
     pub pool_of_row: (u8, HashMap<u32, Constant>),
-    pub pool_of_proto:(u8, HashMap<u32, Prototype>)
+    pub pool_of_proto:(u8, HashMap<u32, Constant>)
 }
 #[repr(C)]
 #[derive(Clone, Debug)]
@@ -241,7 +241,8 @@ pub fn get_constant(tag: u8, uuid: u32) -> Constant {
         TAG_SIMDCHAR => CONSTANT_POOL.read().unwrap().pool_of_simdchar.1[&uuid].clone(),
         TAG_SIMDINT => CONSTANT_POOL.read().unwrap().pool_of_simdint.1[&uuid].clone(),
         TAG_SIMDNUM => CONSTANT_POOL.read().unwrap().pool_of_simdnum.1[&uuid].clone(),
-        TAG_ROW => unimplemented!(),
+        TAG_ROW => CONSTANT_POOL.read().unwrap().pool_of_row.1[&uuid].clone(),
+        TAG_PROTO => CONSTANT_POOL.read().unwrap().pool_of_proto.1[&uuid].clone(),
         _ => unimplemented!(),
     }
 }
