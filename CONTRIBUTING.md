@@ -1,0 +1,4 @@
+# Contributing
+Before contributing code, please check whether there is a Todo task in the relevant GitHub Project of the milestone or error report, and then take this task and tell Lemon, Lemon will divide this Issue on your head, and then remember to format after writing the code. A bit (if it is a binary thing that can maintain its own format, everyone has a formatter after all), and then open a branch and wait for PR to tell Lemon to put your Issue in the waiting PR table column. Before PR, you need to add some test code. The code can be merged into the main branch after passing the CI.
+# 贡献
+贡献代码之前，请查看里程碑或错误报告的相关GitHub Project有没有Todo的任务，然后接下这个任务之后告诉柠檬，柠檬会把这条Issue分到你的头上，然后写完代码记得一定要format一下（如果是二进制的东西可以维持自己的格式，毕竟人人都有formatter），然后开分支等待PR告诉柠檬把你的Issue放在等待PR表列里，PR之前需要添加一部分测试代码，在测试代码通过CI之后即可合并进入主分支。
