@@ -49,11 +49,11 @@ fn main() {
 //         println!("{}",n);
 //     }
 //     let mut reader = reader::Reader::new(bytes.as_ptr());
-//     let proto = reader.read_proto();
-//     println!("{}",proto);
+//     let func = reader.read_func();
+//     println!("{}",func);
 
 //     let mut state = vm::executer::state::State::new();
-//     let mut stack= vm::executer::stack::Stack::new(Box::new(proto));
+//     let mut stack= vm::executer::stack::Stack::new(Box::new(func));
 //     state.push_stack(stack);
 //     println!("===== testing neg =====");
 //     println!("before execute {:?}",state.stack().stack);
@@ -95,11 +95,11 @@ fn main() {
 //     println!("{}",n);
 // }
 // let mut reader = reader::Reader::new(bytes.as_ptr());
-// let proto = reader.read_proto();
-// println!("{}",proto);
+// let func = reader.read_func();
+// println!("{}",func);
 
 // let mut state = vm::executer::state::State::new();
-// let mut stack= vm::executer::stack::Stack::new(Box::new(proto));
+// let mut stack= vm::executer::stack::Stack::new(Box::new(func));
 // state.push_stack(stack);
 // println!("===== testing neg =====");
 // println!("before execute {:?}",state.stack().stack);
@@ -116,16 +116,13 @@ let constant_pool = [
     0x01,0x00,0x00,0x00,
     0x01,0x00,0x00,0x00,
 
-    0x02, 0x00, 0x00, 0x00,
-    0x4c, 0x00, 0x65, 0x00,
-
+    0x02, 0x00, 0x00, 0x00, 0x4c, 0x00, 0x65, 0x00,
     0x00,0x00,0x00,0x00,
-    0x00, 0x00, 0x00, 0x00,
-    0x03, 0x00, 0x00, 0x00,
     0x00,
     0x00,
     0x00,
-
+    0x00,0x00,0x00,0x00,
+    0x00,0x00,0x00,0x00,
     0x01,0x00,
 // start
 // label : 0
@@ -136,19 +133,16 @@ let constant_pool = [
 
     0x00,0x00,0x00,0x00,
     0x00,0x00,0x00,0x00,
-    0x00,0x00,0x00,0x00,
-    0x00,0x00,0x00,0x00,
-    0x00,0x00,0x00,0x00,
 ];
 
 let bytes = [
     0x02, 0x00, 0x00, 0x00, 0x4c, 0x00, 0x65, 0x00,
     0x00,0x00,0x00,0x00,
-    0x00, 0x00, 0x00, 0x00,
-    0x03, 0x00, 0x00, 0x00,
     0x00,
     0x00,
     0x00,
+    0x00,0x00,0x00,0x00,
+    0x00,0x00,0x00,0x00,
     0x01,0x00,
 // start
 // label : 0
@@ -158,22 +152,18 @@ let bytes = [
     0x00,0x45,0x00,0x00,0x00,
     0x00,0x22,0x00,0x00,0x00,
 // end
-    0x00,0x00,0x00,0x00,
-    
     0x01,0x00,0x00,0x00,
     0x11,0x01,0x00,0x00,0x00,
 
     0x00,0x00,0x00,0x00,
-    0x00,0x00,0x00,0x00,
-    0x00,0x00,0x00,0x00,
 ];
 reader::Reader::read_constant_pool(constant_pool.as_ptr(), constant_pool.len());
 let mut reader = reader::Reader::new(bytes.as_ptr());
-let proto = reader.read_proto();
-println!("{}",proto);
+let func = reader.read_func();
+println!("{}",func);
 
 let mut state = vm::executer::state::State::new();
-let mut stack= vm::executer::stack::Stack::new(Box::new(proto));
+let mut stack= vm::executer::stack::Stack::new(Box::new(func));
 state.push_stack(stack);
 println!("===== testing funccall =====");
 println!("before execute {:?}",state.stack().stack);
