@@ -96,7 +96,7 @@ impl Op {
 
 pub const RS:u8 = 0x01; // register ref stack
 pub const RC:u8 = 0x02; // register ref constant table
-pub const RP:u16 = 0x0300; // register ref sub protos
+pub const RP:u16 = 0x0300; // register ref sub funcs
 pub const RCC:u8 = 0x04; // register ref closures
 
 pub const VI:u16 = 0xFF00; // only use for jump

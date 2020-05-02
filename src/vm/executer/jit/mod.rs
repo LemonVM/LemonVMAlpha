@@ -19,8 +19,8 @@ fn template_inter_jit(ins:u8,state:usize){
     // failed fall back to execute
 
 }
-fn jit_some_lines(proto:&mut usize,ins_line_start:u32,ins_line_end:u32){
-    // let bytecodes =  proto[ins_line_start..inst_line_end];
+fn jit_some_lines(func:&mut usize,ins_line_start:u32,ins_line_end:u32){
+    // let bytecodes =  func[ins_line_start..inst_line_end];
     // let gen_native_code_buffer = gen(bytecodes)?;
     // Ok
     // let vm_call_for_jit = native_code_to_vm_call(gen...);
@@ -29,13 +29,13 @@ fn jit_some_lines(proto:&mut usize,ins_line_start:u32,ins_line_end:u32){
     // Err
     // donothing
 }
-fn jit_proto(){
-    // let sub_protos = proto.protos;
-    // while one fails with calling jit proto -> fallback to jit_some_line with line(FOR EXAMPLE FORLOOPS,TAILCALLS) of that function call
+fn jit_func(){
+    // let sub_funcs = func.funcs;
+    // while one fails with calling jit func -> fallback to jit_some_line with line(FOR EXAMPLE FORLOOPS,TAILCALLS) of that function call
     // let gen_native_code_buffer = gen(bytecodes)?;
     // Ok
     // let vm_call_for_jit = native_code_to_vm_call(gen...);
-    // proto.instructions replace to call native;
+    // func.instructions replace to call native;
         // if debug then print replaced or something...
     // Err
         // donothing

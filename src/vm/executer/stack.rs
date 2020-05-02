@@ -22,8 +22,8 @@ impl Stack{
     pub fn new_from_closure(closure:Box<Closure>)->Stack{
         Stack{stack:ArrayVec::new(),pc:0,ir:std::ptr::null(),closure,fixed_top:0}
     }
-    pub fn new(func_type:Box<super::super::super::bin_format::func_type::FuncType>)->Stack{
-        Stack{stack:ArrayVec::new(),pc:0,ir:std::ptr::null(),closure:Box::new(Closure::new(func_type.clone(),func_type.arg_types,func_type.ret_types)),fixed_top:0} //FIXME:GC this will be allocated in heap
+    pub fn new(func:Box<super::super::super::bin_format::func_type::FuncType>)->Stack{
+        Stack{stack:ArrayVec::new(),pc:0,ir:std::ptr::null(),closure:Box::new(Closure::new(func.clone(),func.arg_types,func.ret_types)),fixed_top:0} //FIXME:GC this will be allocated in heap
     }
 
     pub fn top(&self) -> isize {
