@@ -27,7 +27,7 @@ pub enum Constant {
     SIMDInt(VMInt, VMInt, VMInt, VMInt),
     SIMDNum(VMNum, VMNum, VMNum, VMNum),
     SIMDChar(VMChar, VMChar, VMChar, VMChar),
-    Proto(FuncType),
+    Func(FuncType),
     Row(Row), // TODO：完成这厮
 }
 

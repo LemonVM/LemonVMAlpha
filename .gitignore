@@ -4,3 +4,6 @@
 *.lock
 **/*.rs.bk
 /.idea
+*.exe
+*.lmvmb
+*.lmvmcp

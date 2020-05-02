@@ -1,6 +1,8 @@
 # LemonVM
 ![Rust](https://github.com/LemonHX/LemonVM/workflows/Rust/badge.svg?branch=master)
 
+
+![LemonVM](lemonvm.gif)
 <details><summary>Chinese</summary>
 <p>
 

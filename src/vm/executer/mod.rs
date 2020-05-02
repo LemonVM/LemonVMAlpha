@@ -9,13 +9,13 @@ pub struct Value(pub PrimeValue, pub Type);
 #[derive(Debug,Clone)]
 pub struct Closure{
     func: Box<super::super::bin_format::func_type::FuncType>,
-    args_types: Vec<Type>,
-    return_types: Vec<Type>,
+    arg_types: Vec<Type>,
+    ret_types: Vec<Type>,
     current_label_number: u16 // this is not the label name
 }
 impl Closure{
-    fn new(func:Box<super::super::bin_format::func_type::FuncType>,args_types:Vec<Type>,return_types:Vec<Type>)->Closure{
-        Closure{func,current_label_number:0,args_types,return_types}
+    fn new(func:Box<super::super::bin_format::func_type::FuncType>,arg_types:Vec<Type>,ret_types:Vec<Type>)->Closure{
+        Closure{func,current_label_number:0,arg_types,ret_types}
     }
 }
 impl PartialEq for Closure{
@@ -82,7 +82,7 @@ impl From<super::super::bin_format::constant_and_pool::Constant> for PrimeValue 
             }
 
             super::super::bin_format::constant_and_pool::Constant::Row(r) => Self::Row(Row::from(r)),
-            super::super::bin_format::constant_and_pool::Constant::Proto(p) => Self::Closure(Closure::new(Box::new(p.clone()),p.arg_types,p.ret_types))
+            super::super::bin_format::constant_and_pool::Constant::Func(p) => Self::Closure(Closure::new(Box::new(p.clone()),p.arg_types,p.ret_types))
         }
     }
 }
@@ -113,12 +113,18 @@ impl From<PrimeValue> for Type {
                         Self::Poly(Box::new(Self::Mono(TAG_ROW)),vec![r.arr[0].clone().1])
                     }
                 } else {
-                    let mut t = vec![];
-                    r.row.iter().for_each(|(k, v)| t.push(v.clone().1));
-                    Self::Poly(Box::new(Self::Mono(TAG_ROW)),t)
+                    let t = r.row.iter().map(|(s,v)|(s.clone(),v.1.clone())).collect::<Vec<_>>();
+                    Self::Row(t)
                 }
             }
-            Closure(c) => Self::Mono(TAG_FUNC),//TODO: 完成这玩意儿
+            Closure(c) => {
+                let ret = Self::Arrow(c.arg_types,c.ret_types);
+                if Self::holes_count(&ret).len() > 0{
+                    Self::Poly(Box::new(ret),vec!())
+                }else{
+                    ret
+                }
+            },//TODO: 完成这玩意儿
             //Thread(),//TODO: 完成这玩意儿
             _ => unimplemented!(),
         }

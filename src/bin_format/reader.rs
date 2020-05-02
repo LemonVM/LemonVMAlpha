@@ -69,8 +69,26 @@ impl Reader {
             let sizeof_vm_char = self.read_byte();
             let sizeof_vm_int = self.read_byte();
             let sizeof_vm_number = self.read_byte();
-            super::Header { sig: clone_into_array(&*sig), version, instruction_size, sizeof_vm_char, sizeof_vm_int, sizeof_vm_number, }
+            super::Header {
+                sig: clone_into_array(&*sig),
+                version,
+                instruction_size,
+                sizeof_vm_char,
+                sizeof_vm_int,
+                sizeof_vm_number,
+            }
         }
+    }
+
+    pub fn read_constant_pool_from_file(path: String, filename: String) {
+        use std::fs::File;
+        use std::io::prelude::*;
+        use std::io::BufReader;
+        let f = File::open(format!("{}{}.lmvmcp", path, filename)).unwrap();
+        let mut bfr = BufReader::new(f);
+        let mut buff = vec![];
+        bfr.read_to_end(&mut buff);
+        Reader::read_constant_pool(buff.as_ptr(), buff.len());
     }
     // assign value to global constant pool
     pub fn read_constant_pool(data: *const u8, len: usize) {
@@ -216,10 +234,9 @@ impl Reader {
                 self.read_vm_number(),
                 self.read_vm_number(),
             );
-        } else if tag == TAG_FUNC{
-            return Proto(self.read_func())
-        }
-        else {
+        } else if tag == TAG_FUNC {
+            return Func(self.read_func());
+        } else {
             unimplemented!()
         }
     }
@@ -253,33 +270,33 @@ impl Reader {
         }
         labels
     }
-    pub fn read_type(&mut self) -> super::Type{
+    pub fn read_type(&mut self) -> super::Type {
         use super::Type::*;
         let flag = self.read_byte();
-        match flag{
+        match flag {
             0x00 => Null,
             0x01 => Mono(self.read_byte()),
-            0x02 => Poly(Box::new(self.read_type()),self.read_vec(|r| r.read_type())),
-            0x04 => Row(self.read_vec(|r|{(r.read_vm_symbol(),r.read_type())})),
+            0x02 => Poly(Box::new(self.read_type()), self.read_vec(|r| r.read_type())),
+            0x04 => Row(self.read_vec(|r| (r.read_vm_symbol(), r.read_type()))),
             0xFF => Hole(self.read_byte()),
-            _ => panic!("ERROR! TYPE FLAG NOT RECOGNISED")
+            _ => panic!("ERROR! TYPE FLAG NOT RECOGNISED"),
         }
     }
     pub fn read_func(&mut self) -> super::FuncType {
-        let name= self.read_vm_symbol();
-        let uuid= self.read_vm_int();
-        let params= self.read_byte();
-        let is_vargs= self.read_byte();
+        let name = self.read_vm_symbol();
+        let uuid = self.read_vm_int();
+        let params = self.read_byte();
+        let is_vargs = self.read_byte();
         let rets = self.read_byte();
-        let arg_types= self.read_vec(|r| r.read_type());
-        let ret_types= self.read_vec(|r| r.read_type());
-        let instruction_table= self.read_labels();
-        let const_func_refs= self.read_vec(|r| (r.read_byte(),r.read_vm_int()));
+        let arg_types = self.read_vec(|r| r.read_type());
+        let ret_types = self.read_vec(|r| r.read_type());
+        let instruction_table = self.read_labels();
+        let const_func_refs = self.read_vec(|r| (r.read_byte(), r.read_vm_int()));
 
-        let debug_local_variables= self.read_vec(|r| r.read_loc_var());
+        let debug_local_variables = self.read_vec(|r| r.read_loc_var());
         if is_vargs == 0x00 {
-            assert_eq!(params,arg_types.len() as u8);
-            assert_eq!(rets,ret_types.len() as u8);
+            assert_eq!(params, arg_types.len() as u8);
+            assert_eq!(rets, ret_types.len() as u8);
         }
         super::func_type::FuncType {
             name,
@@ -307,6 +324,17 @@ impl Reader {
             start_pc: self.read_vm_int(),
             end_pc: self.read_vm_int(),
         }
+    }
+    pub fn read_binary_chunk_from_file(path:String,filename:String)->super::BinaryChunk{
+        use std::fs::File;
+        use std::io::prelude::*;
+        use std::io::BufReader;
+        let f = File::open(format!("{}{}.lmvmb", path, filename)).unwrap();
+        let mut bfr = BufReader::new(f);
+        let mut buff = vec![];
+        bfr.read_to_end(&mut buff);
+        let mut reader = Reader::new(buff.as_ptr());
+        reader.read_binary_chunk()
     }
     pub fn read_binary_chunk(&mut self) -> super::BinaryChunk {
         super::BinaryChunk {
