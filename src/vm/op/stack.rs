@@ -21,4 +21,9 @@ pub const DUP2: u8 = 0x4c;
 pub const FIXTOP: u8 = 0x4d;
 
 pub const CLOSURE_OP: Op = Op::FIX(FixOp{op:CLOSURE,opmode:FixOpMode::AX(RP)});
+// only used before return
+// example
+    // fixtop 0x00
+    // return
+// it will return address 0x00
 pub const FIXTOP_OP: Op = Op::FIX(FixOp{op:FIXTOP,opmode:FixOpMode::A(RS)});

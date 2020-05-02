@@ -20,10 +20,10 @@ pub struct Stack{
 }
 impl Stack{
     pub fn new_from_closure(closure:Box<Closure>)->Stack{
-        Stack{stack:ArrayVec::new(),pc:0,ir:std::ptr::null(),closure,fixed_top:0}
+        Stack{stack:ArrayVec::new(),pc:0,ir:std::ptr::null(),closure,fixed_top:255}
     }
     pub fn new(func:Box<super::super::super::bin_format::func_type::FuncType>)->Stack{
-        Stack{stack:ArrayVec::new(),pc:0,ir:std::ptr::null(),closure:Box::new(Closure::new(func.clone(),func.arg_types,func.ret_types)),fixed_top:0} //FIXME:GC this will be allocated in heap
+        Stack{stack:ArrayVec::new(),pc:0,ir:std::ptr::null(),closure:Box::new(Closure::new(func.clone(),func.arg_types,func.ret_types)),fixed_top:255} //FIXME:GC this will be allocated in heap
     }
 
     pub fn top(&self) -> isize {
@@ -31,7 +31,7 @@ impl Stack{
     }
 
     pub fn check_ramain_enougth(&mut self, n: usize) -> bool {
-        self.stack.remaining_capacity() + n > self.stack.capacity()
+        self.stack.remaining_capacity() + n > 255
     }
 
     pub fn push(&mut self, val: Value) {
@@ -78,8 +78,10 @@ impl Stack{
             to -= 1;
         }
     }
+    // 255 means no fixed top
+    // so only can have at most 254 return values
     pub fn fix_to_top(&mut self,id:usize){
-        if self.fixed_top == 0{
+        if self.fixed_top == 255{
             self.fixed_top = self.stack.len().clone() -1;
             self.stack.swap(self.fixed_top , id);
         }else{
@@ -89,7 +91,7 @@ impl Stack{
     }
     // because of a,b,c,d,e = f() and f fixed tops will be e,d,c,b,a
     pub fn fixed_tops(&mut self)->Vec<Value>{
-        if self.fixed_top == 0{
+        if self.fixed_top == 255{
             vec!()
         }else{
             let len = self.stack.len();
