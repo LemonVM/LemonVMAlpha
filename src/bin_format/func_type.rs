@@ -1,9 +1,19 @@
 use super::*;
 #[repr(C)]
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Label {
     pub label: u16,
     pub instructions: Vec<*const u8>,
+}
+impl std::fmt::Debug for Label{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut is = vec!();
+        for i in self.instructions.clone(){
+            let u = unsafe{*(i as *const u32)};
+            is.push(format!("0x{:08X}",u32::from_be(u)));
+        }
+        f.write_fmt(format_args!("{:?}",is))
+    }
 }
 #[repr(C)]
 #[derive(Clone, PartialEq, Debug)]
@@ -41,27 +51,28 @@ impl PartialEq for FuncType {
 impl std::fmt::Display for FuncType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut instructions = String::new();
-        for pc in 0..self.instruction_table.len() {
+        for label in 0..self.instruction_table.len() {
             instructions += format!(
-                "\t{}\t{:?}\n",
-                pc + 1,
-                self.instruction_table[pc]
+                "  0x{:04X}:  {:?}\n",
+                u16::from_be(label as u16),
+                self.instruction_table[label]
             )
             .as_str();
         }
         writeln!(
             f,
             "===== Prototype =====
+< arg_types: {:?}, ret_types: {:?} >
 ( params: {}, is_vargs?: {}, rets:{} )
 {{ number of labels: {} }}
-varialbles: {} functions: {}
+sub functions: {}
 instructions:
 {}",
+            self.arg_types,self.ret_types,
             self.params,
             self.is_vargs != 0,
             self.rets,
             self.instruction_table.len(),
-            self.debug_local_variables.len(),
             self.const_func_refs.len(),
             instructions
         )
