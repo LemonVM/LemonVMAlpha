@@ -1,4 +1,5 @@
 pub mod reader;
+pub mod writer;
 pub mod func_type;
 pub mod constant_and_pool;
 
@@ -51,9 +52,9 @@ impl std::fmt::Debug for VMSym {
 #[repr(C)]
 #[derive(Clone, PartialEq, Debug)]
 pub struct BinaryChunk {
-    header: Header,
-    up_value_size: u8,
-    entry: FuncType,
+    pub header: Header,
+    pub up_value_size: u8,
+    pub entry: FuncType,
 }
 
 #[repr(C)]
