@@ -3,29 +3,24 @@ pub mod state;
 
 use super::super::bin_format::*;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum Type {
-    Null,
-    Mono(u8),
-    Poly(Vec<Type>),
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct Value(PrimeValue, Type);
 
 #[derive(Debug,Clone)]
 pub struct Closure{
-    proto: Box<super::super::bin_format::Prototype>,
+    func: Box<super::super::bin_format::func_type::FuncType>,
+    args_types: Vec<Type>,
+    return_types: Vec<Type>,
     current_label_number: u16 // this is not the label name
 }
 impl Closure{
-    fn new(proto:Box<super::super::bin_format::Prototype>)->Closure{
-        Closure{proto,current_label_number:0}
+    fn new(func:Box<super::super::bin_format::func_type::FuncType>,args_types:Vec<Type>,return_types:Vec<Type>)->Closure{
+        Closure{func,current_label_number:0,args_types,return_types}
     }
 }
 impl PartialEq for Closure{
     fn eq(&self, other: &Self) -> bool {
-        (*(self.proto)).uuid == (*(other.proto)).uuid
+        (*(self.func)).uuid == (*(other.func)).uuid
     }
 }
 
@@ -67,32 +62,32 @@ impl From<super::super::bin_format::Row> for Row {
         }
     }
 }
-impl From<super::super::bin_format::Constant> for PrimeValue {
-    fn from(f: super::super::bin_format::Constant) -> Self {
+impl From<super::super::bin_format::constant_and_pool::Constant> for PrimeValue {
+    fn from(f: super::super::bin_format::constant_and_pool::Constant) -> Self {
         match f {
-            super::super::bin_format::Constant::Null => Self::Null,
-            super::super::bin_format::Constant::Bool(b) => Self::Bool(b),
-            super::super::bin_format::Constant::Int(i) => Self::Int(i),
-            super::super::bin_format::Constant::Num(n) => Self::Num(n),
-            super::super::bin_format::Constant::Sym(s) => Self::Sym(s),
+            super::super::bin_format::constant_and_pool::Constant::Null => Self::Null,
+            super::super::bin_format::constant_and_pool::Constant::Bool(b) => Self::Bool(b),
+            super::super::bin_format::constant_and_pool::Constant::Int(i) => Self::Int(i),
+            super::super::bin_format::constant_and_pool::Constant::Num(n) => Self::Num(n),
+            super::super::bin_format::constant_and_pool::Constant::Sym(s) => Self::Sym(s),
 
-            super::super::bin_format::Constant::SIMDInt(i1, i2, i3, i4) => {
+            super::super::bin_format::constant_and_pool::Constant::SIMDInt(i1, i2, i3, i4) => {
                 Self::SIMDInt(i1, i2, i3, i4)
             }
-            super::super::bin_format::Constant::SIMDNum(n1, n2, n3, n4) => {
+            super::super::bin_format::constant_and_pool::Constant::SIMDNum(n1, n2, n3, n4) => {
                 Self::SIMDNum(n1, n2, n3, n4)
             }
-            super::super::bin_format::Constant::SIMDChar(c1, c2, c3, c4) => {
+            super::super::bin_format::constant_and_pool::Constant::SIMDChar(c1, c2, c3, c4) => {
                 Self::SIMDChar(c1, c2, c3, c4)
             }
 
-            super::super::bin_format::Constant::Row(r) => Self::Row(Row::from(r)),
-            super::super::bin_format::Constant::Proto(p) => Self::Closure(Closure::new(Box::new(p)))
+            super::super::bin_format::constant_and_pool::Constant::Row(r) => Self::Row(Row::from(r)),
+            super::super::bin_format::constant_and_pool::Constant::Proto(p) => Self::Closure(Closure::new(Box::new(p.clone()),p.arg_types,p.ret_types))
         }
     }
 }
-impl From<super::super::bin_format::Constant> for Value {
-    fn from(f: super::super::bin_format::Constant) -> Self {
+impl From<super::super::bin_format::constant_and_pool::Constant> for Value {
+    fn from(f: super::super::bin_format::constant_and_pool::Constant) -> Self {
         Self::from(PrimeValue::from(f))
     }
 }
@@ -115,15 +110,15 @@ impl From<PrimeValue> for Type {
                     if r.arr.len() == 0 {
                         Self::Null
                     } else {
-                        Self::Poly(vec![r.arr[0].clone().1])
+                        Self::Poly(Box::new(Self::Mono(TAG_ROW)),vec![r.arr[0].clone().1])
                     }
                 } else {
                     let mut t = vec![];
                     r.row.iter().for_each(|(k, v)| t.push(v.clone().1));
-                    Self::Poly(t)
+                    Self::Poly(Box::new(Self::Mono(TAG_ROW)),t)
                 }
             }
-            Closure(c) => Self::Mono(TAG_PROTO),//TODO: 完成这玩意儿
+            Closure(c) => Self::Mono(TAG_FUNC),//TODO: 完成这玩意儿
             //Thread(),//TODO: 完成这玩意儿
             _ => unimplemented!(),
         }

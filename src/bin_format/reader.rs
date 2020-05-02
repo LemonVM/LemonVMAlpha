@@ -80,11 +80,11 @@ impl Reader {
             let tag = reader.read_byte();
             let len = reader.read_vm_int();
             for j in 0..len {
-                use super::Constant::*;
+                use super::constant_and_pool::Constant::*;
                 use super::*;
                 match tag {
                     TAG_INT => {
-                        super::CONSTANT_POOL
+                        super::constant_and_pool::CONSTANT_POOL
                             .write()
                             .unwrap()
                             .pool_of_int
@@ -92,7 +92,7 @@ impl Reader {
                             .insert(reader.read_vm_int(), reader.read_constant(tag));
                     }
                     TAG_NUM => {
-                        super::CONSTANT_POOL
+                        super::constant_and_pool::CONSTANT_POOL
                             .write()
                             .unwrap()
                             .pool_of_num
@@ -100,7 +100,7 @@ impl Reader {
                             .insert(reader.read_vm_int(), reader.read_constant(tag));
                     }
                     TAG_SYM => {
-                        super::CONSTANT_POOL
+                        super::constant_and_pool::CONSTANT_POOL
                             .write()
                             .unwrap()
                             .pool_of_sym
@@ -108,7 +108,7 @@ impl Reader {
                             .insert(reader.read_vm_int(), reader.read_constant(tag));
                     }
                     TAG_SIMDCHAR => {
-                        super::CONSTANT_POOL
+                        super::constant_and_pool::CONSTANT_POOL
                             .write()
                             .unwrap()
                             .pool_of_simdchar
@@ -116,7 +116,7 @@ impl Reader {
                             .insert(reader.read_vm_int(), reader.read_constant(tag));
                     }
                     TAG_SIMDINT => {
-                        super::CONSTANT_POOL
+                        super::constant_and_pool::CONSTANT_POOL
                             .write()
                             .unwrap()
                             .pool_of_simdint
@@ -124,7 +124,7 @@ impl Reader {
                             .insert(reader.read_vm_int(), reader.read_constant(tag));
                     }
                     TAG_SIMDNUM => {
-                        super::CONSTANT_POOL
+                        super::constant_and_pool::CONSTANT_POOL
                             .write()
                             .unwrap()
                             .pool_of_simdnum
@@ -132,18 +132,18 @@ impl Reader {
                             .insert(reader.read_vm_int(), reader.read_constant(tag));
                     }
                     TAG_ROW => {
-                        super::CONSTANT_POOL
+                        super::constant_and_pool::CONSTANT_POOL
                             .write()
                             .unwrap()
                             .pool_of_row
                             .1
                             .insert(reader.read_vm_int(), reader.read_constant(tag));
                     }
-                    TAG_PROTO => {
-                        super::CONSTANT_POOL
+                    TAG_FUNC => {
+                        super::constant_and_pool::CONSTANT_POOL
                             .write()
                             .unwrap()
-                            .pool_of_proto
+                            .pool_of_func
                             .1
                             .insert(reader.read_vm_int(), reader.read_constant(tag));
                     }
@@ -152,8 +152,8 @@ impl Reader {
             }
         }
     }
-    pub fn read_constant(&mut self, tag: u8) -> super::Constant {
-        use super::Constant::*;
+    pub fn read_constant(&mut self, tag: u8) -> super::constant_and_pool::Constant {
+        use super::constant_and_pool::Constant::*;
         use super::*;
         if tag == TAG_ROW {
             let is_arr = self.read_byte() == 0x00;
@@ -216,8 +216,8 @@ impl Reader {
                 self.read_vm_number(),
                 self.read_vm_number(),
             );
-        } else if tag == TAG_PROTO{
-            return Proto(self.read_proto())
+        } else if tag == TAG_FUNC{
+            return Proto(self.read_func())
         }
         else {
             unimplemented!()
@@ -253,30 +253,53 @@ impl Reader {
         }
         labels
     }
-    pub fn read_proto(&mut self) -> super::Prototype {
-        super::Prototype {
-            name: self.read_vm_symbol(),
-            uuid: self.read_vm_int(),
-            line_start: self.read_vm_int(),
-            line_end: self.read_vm_int(),
-            params: self.read_byte(),
-            is_vargs: self.read_byte(),
-            stack_size: self.read_byte(),
-            instruction_table: self.read_labels(),
-            // lex_constant: CONSTANT_POOL.read().unwrap(),
-            closure_caps: self.read_vec(|r| r.read_closure_cap()),
-            const_proto_refs: self.read_vec(|r| (r.read_byte(),r.read_vm_int())),
-            debug_line_info: self.read_vec(|r| r.read_vm_int()),
-            debug_local_variables: self.read_vec(|r| r.read_loc_var()),
-            debug_closure_cap_names: self.read_vec(|r| r.read_vm_symbol()),
+    pub fn read_type(&mut self) -> super::Type{
+        use super::Type::*;
+        let flag = self.read_byte();
+        match flag{
+            0x00 => Null,
+            0x01 => Mono(self.read_byte()),
+            0x02 => Poly(Box::new(self.read_type()),self.read_vec(|r| r.read_type())),
+            0x04 => Row(self.read_vec(|r|{(r.read_vm_symbol(),r.read_type())})),
+            0xFF => Hole(self.read_byte()),
+            _ => panic!("ERROR! TYPE FLAG NOT RECOGNISED")
         }
     }
-    pub fn read_closure_cap(&mut self) -> super::ClosureCap {
-        super::ClosureCap {
-            instack: self.read_byte(),
-            idx: self.read_byte(),
+    pub fn read_func(&mut self) -> super::FuncType {
+        let name= self.read_vm_symbol();
+        let uuid= self.read_vm_int();
+        let params= self.read_byte();
+        let is_vargs= self.read_byte();
+        let rets = self.read_byte();
+        let arg_types= self.read_vec(|r| r.read_type());
+        let ret_types= self.read_vec(|r| r.read_type());
+        let instruction_table= self.read_labels();
+        let const_func_refs= self.read_vec(|r| (r.read_byte(),r.read_vm_int()));
+
+        let debug_local_variables= self.read_vec(|r| r.read_loc_var());
+        if is_vargs == 0x00 {
+            assert_eq!(params,arg_types.len() as u8);
+            assert_eq!(rets,ret_types.len() as u8);
+        }
+        super::func_type::FuncType {
+            name,
+            uuid,
+            params,
+            is_vargs,
+            rets,
+            arg_types,
+            ret_types,
+            instruction_table,
+            const_func_refs,
+            debug_local_variables,
         }
     }
+    // pub fn read_closure_cap(&mut self) -> super::ClosureCap {
+    //     super::ClosureCap {
+    //         instack: self.read_byte(),
+    //         idx: self.read_byte(),
+    //     }
+    // }
 
     pub fn read_loc_var(&mut self) -> super::LocalVar {
         super::LocalVar {
@@ -289,7 +312,7 @@ impl Reader {
         super::BinaryChunk {
             header: self.read_header(),
             up_value_size: self.read_byte(),
-            entry: self.read_proto(),
+            entry: self.read_func(),
         }
     }
 }

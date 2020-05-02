@@ -1,5 +1,4 @@
 use super::stack::*;
-use std::rc::Rc;
 pub struct State {
     pub frames: Vec<Stack>,
 }
@@ -30,7 +29,7 @@ impl State {
         if let Some(instr) = self
             .stack()
             .closure
-            .proto
+            .func
             .instruction_table
             .get(current_label as usize)?
             .instructions
@@ -46,11 +45,11 @@ impl State {
             self.fetch()
         }
     }
-    pub fn load_proto(&mut self, idx: usize) {
-        let proto = Box::new(self.stack().closure.proto.const_proto_refs[idx].clone());
+    pub fn load_func(&mut self, idx: usize) {
+        let func = Box::new(self.stack().closure.func.const_func_refs[idx].clone());
         self.stack()
             .push(super::Value::from(super::PrimeValue::from(
-                super::super::super::bin_format::get_constant(proto.0, proto.1),
+                super::super::super::bin_format::constant_and_pool::get_constant(func.0, func.1),
             )));
     }
     pub fn push_function_frame_and_args(&mut self,closure:Box<super::Closure>,args:Vec<super::Value>){
@@ -103,7 +102,7 @@ impl State {
                                 let total_len = offset + len;
                                 let tag = unsafe { *(ins.add(3)) };
                                 let uuid = unsafe { *(ins.add(3 + 1)) as u32 };
-                                use super::super::super::bin_format::get_constant;
+                                use super::super::super::bin_format::constant_and_pool::get_constant;
                                 let cons = get_constant(tag, uuid);
                                 self.stack()
                                     .push(Value::from(super::PrimeValue::from(cons)));
@@ -133,7 +132,7 @@ impl State {
                                 let label = self
                                     .stack()
                                     .closure
-                                    .proto
+                                    .func
                                     .instruction_table
                                     .iter()
                                     .position(|r| r.label == value)
@@ -239,7 +238,7 @@ impl State {
                         match iins {
                             CLOSURE => {
                                 let idx = unsafe{*(ins.add(1) as *const u16)};
-                                self.load_proto(idx as usize);
+                                self.load_func(idx as usize);
                             },
                             _ => unimplemented!()
                         }
