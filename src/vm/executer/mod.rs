@@ -1,10 +1,10 @@
 pub mod stack;
 pub mod state;
-
+mod test;
 use super::super::bin_format::*;
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Value(PrimeValue, Type);
+pub struct Value(pub PrimeValue, pub Type);
 
 #[derive(Debug,Clone)]
 pub struct Closure{

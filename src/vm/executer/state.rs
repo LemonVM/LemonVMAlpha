@@ -240,6 +240,10 @@ impl State {
                                 let idx = unsafe{*(ins.add(1) as *const u16)};
                                 self.load_func(idx as usize);
                             },
+                            FIXTOP => {
+                                let idx = unsafe{*(ins.add(1))};
+                                self.stack().fix_to_top(idx as usize);
+                            }
                             _ => unimplemented!()
                         }
                         break;
