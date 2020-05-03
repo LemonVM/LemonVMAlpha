@@ -7,10 +7,10 @@ use super::super::bin_format::*;
 pub struct Value(pub PrimeValue, pub Type);
 
 macro_rules! tylet {
-    ($t1:ident,$v1:tt,$t2:ident,$v2:tt,$t3:ident,$t4:ty) => {
+    ($t1:ident,$v1:tt,$t2:ident,$v2:tt,$t3:ident,$t4:ty,$s1:tt) => {
         if let PrimeValue::$t1(c1) = $v1{
             if let PrimeValue::$t2(c2) = $v2{
-                let ret = PrimeValue::$t3(c1 as $t4 + c2 as $t4);
+                let ret = PrimeValue::$t3((c1 as $t4) $s1 (c2 as $t4));
                 Value::from(ret)
             }else{
                 panic!("ERROR! TYPE NOT MATCH WITH VALUE")
@@ -20,63 +20,140 @@ macro_rules! tylet {
         }
     };
 }
-
-pub fn add(a:Value,b:Value)->Value{
-    use super::super::bin_format::*;
-    use super::super::bin_format::Type::*;
-    let Value(v1,t1) = a.clone();
-    let Value(v2,t2) = b.clone();
-    use PrimeValue::*;
-    match t1{
-        Type::Null => {b},
-        Mono(TAG_CHAR) => {
-            match t2{
-                Type::Null => {a},
+macro_rules! binary_expr {
+    ($name:ident,$s1:tt) => {
+        pub fn $name(a:Value,b:Value)->Value{
+            use super::super::bin_format::*;
+            use super::super::bin_format::Type::*;
+            let Value(v1,t1) = a.clone();
+            let Value(v2,t2) = b.clone();
+            use PrimeValue::*;
+            match t1{
+                Type::Null => {b},
                 Mono(TAG_CHAR) => {
-                    tylet!(Char,v1,Char,v2,Char,VMChar)
+                    match t2{
+                        Type::Null => {a},
+                        Mono(TAG_CHAR) => {
+                            tylet!(Char,v1,Char,v2,Char,VMChar,$s1)
+                        },
+                        Mono(TAG_INT) => {
+                            tylet!(Char,v1,Int,v2,Int,VMInt,$s1)
+                        },
+                        Mono(TAG_NUM) => {
+                            tylet!(Char,v1,Num,v2,Num,VMNum,$s1)
+                        },
+                        _ => unimplemented!()
+                    }
                 },
                 Mono(TAG_INT) => {
-                    tylet!(Char,v1,Int,v2,Int,VMInt)
+                    match t2{
+                        Type::Null => {a},
+                        Mono(TAG_CHAR) => {
+                            tylet!(Int,v1,Char,v2,Int,VMInt,$s1)
+                        },
+                        Mono(TAG_INT) => {
+                            tylet!(Int,v1,Int,v2,Int,VMInt,$s1)
+                        },
+                        Mono(TAG_NUM) => {
+                            tylet!(Int,v1,Num,v2,Num,VMNum,$s1)
+                        },
+                        _ => unimplemented!()
+                    }
                 },
                 Mono(TAG_NUM) => {
-                    tylet!(Char,v1,Num,v2,Num,VMNum)
+                    match t2{
+                        Type::Null => {a},
+                        Mono(TAG_CHAR) => {
+                            tylet!(Num,v1,Char,v2,Num,VMNum,$s1)
+                        },
+                        Mono(TAG_INT) => {
+                            tylet!(Num,v1,Int,v2,Num,VMNum,$s1)
+                        },
+                        Mono(TAG_NUM) => {
+                            tylet!(Num,v1,Num,v2,Num,VMNum,$s1)
+                        },
+                        _ => unimplemented!()
+                    }
                 },
                 _ => unimplemented!()
             }
-        },
-        Mono(TAG_INT) => {
-            match t2{
-                Type::Null => {a},
-                Mono(TAG_CHAR) => {
-                    tylet!(Int,v1,Char,v2,Int,VMInt)
-                },
-                Mono(TAG_INT) => {
-                    tylet!(Int,v1,Int,v2,Int,VMInt)
-                },
-                Mono(TAG_NUM) => {
-                    tylet!(Int,v1,Num,v2,Num,VMNum)
-                },
-                _ => unimplemented!()
-            }
-        },
-        Mono(TAG_NUM) => {
-            match t2{
-                Type::Null => {a},
-                Mono(TAG_CHAR) => {
-                    tylet!(Num,v1,Char,v2,Num,VMNum)
-                },
-                Mono(TAG_INT) => {
-                    tylet!(Num,v1,Int,v2,Num,VMNum)
-                },
-                Mono(TAG_NUM) => {
-                    tylet!(Num,v1,Num,v2,Num,VMNum)
-                },
-                _ => unimplemented!()
-            }
-        },
-        _ => unimplemented!()
-    }
+        }
+    };
 }
+macro_rules! binary_comp_expr {
+        ($name:ident,$s1:tt) => {
+            pub fn $name(a:Value,b:Value)->Value{
+                use super::super::bin_format::*;
+                use super::super::bin_format::Type::*;
+                let Value(v1,t1) = a.clone();
+                let Value(v2,t2) = b.clone();
+                use PrimeValue::*;
+                match t1{
+                    Type::Null => {Value(PrimeValue::Bool(false),Type::Mono(TAG_BOOL))},
+                    Mono(TAG_CHAR) => {
+                        match t2{
+                            Type::Null => {Value(PrimeValue::Bool(false),Type::Mono(TAG_BOOL))},
+                            Mono(TAG_CHAR) => {
+                                tylet!(Char,v1,Char,v2,Bool,VMChar,$s1)
+                            },
+                            Mono(TAG_INT) => {
+                                tylet!(Char,v1,Int,v2,Bool,VMInt,$s1)
+                            },
+                            Mono(TAG_NUM) => {
+                                tylet!(Char,v1,Num,v2,Bool,VMNum,$s1)
+                            },
+                            _ => unimplemented!()
+                        }
+                    },
+                    Mono(TAG_INT) => {
+                        match t2{
+                            Type::Null => {Value(PrimeValue::Bool(false),Type::Mono(TAG_BOOL))},
+                            Mono(TAG_CHAR) => {
+                                tylet!(Int,v1,Char,v2,Bool,VMInt,$s1)
+                            },
+                            Mono(TAG_INT) => {
+                                tylet!(Int,v1,Int,v2,Bool,VMInt,$s1)
+                            },
+                            Mono(TAG_NUM) => {
+                                tylet!(Int,v1,Num,v2,Bool,VMNum,$s1)
+                            },
+                            _ => unimplemented!()
+                        }
+                    },
+                    Mono(TAG_NUM) => {
+                        match t2{
+                            Type::Null => {Value(PrimeValue::Bool(false),Type::Mono(TAG_BOOL))},
+                            Mono(TAG_CHAR) => {
+                                tylet!(Num,v1,Char,v2,Bool,VMNum,$s1)
+                            },
+                            Mono(TAG_INT) => {
+                                tylet!(Num,v1,Int,v2,Bool,VMNum,$s1)
+                            },
+                            Mono(TAG_NUM) => {
+                                tylet!(Num,v1,Num,v2,Bool,VMNum,$s1)
+                            },
+                            _ => unimplemented!()
+                        }
+                    },
+                    _ => unimplemented!()
+                }
+            }
+        };
+}
+
+binary_expr!(add,+);
+binary_expr!(sub,-);
+binary_expr!(mul,*);
+binary_expr!(div,/);
+binary_expr!(modu,%);
+
+binary_comp_expr!(eq,==);
+binary_comp_expr!(neq,!=);
+binary_comp_expr!(leeq,<=);
+binary_comp_expr!(gteq,>=);
+binary_comp_expr!(le,<);
+binary_comp_expr!(gt,>);
+
 
 #[derive(Debug,Clone)]
 pub struct Closure{
@@ -99,7 +176,7 @@ impl PartialEq for Closure{
 #[derive(Debug, Clone, PartialEq)]
 pub enum PrimeValue {
     Null,
-    Bool(u8),
+    Bool(VMBool),
     Char(VMChar),
     Int(VMInt),
     Num(VMNum),

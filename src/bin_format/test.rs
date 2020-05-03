@@ -30,7 +30,7 @@ fn ValidateHeader() {
 // }
 
 #[test]
-fn ProtoFromByteCode() {
+fn FuncFromByteCode() {
     // layout: types_len (tag len (uuid:data)*)*
     let constant_pool = [
         0x01,

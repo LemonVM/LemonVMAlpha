@@ -52,9 +52,13 @@ impl State {
                 super::super::super::bin_format::constant_and_pool::get_constant(func.0, func.1),
             )));
     }
-    pub fn push_function_frame_and_args(&mut self,closure:Box<super::Closure>,args:Vec<super::Value>){
+    pub fn push_function_frame_and_args(
+        &mut self,
+        closure: Box<super::Closure>,
+        args: Vec<super::Value>,
+    ) {
         let mut stack = Stack::new_from_closure(closure);
-        if stack.check_ramain_enougth(args.len()){
+        if stack.check_ramain_enougth(args.len()) {
             use arrayvec::*;
             use std::iter::FromIterator;
             stack.stack = ArrayVec::from_iter(args);
@@ -62,22 +66,24 @@ impl State {
         self.frames.push(stack);
     }
     // args is how deep on stack top will copy as argument
-    pub fn call(&mut self,f:Box<super::Closure>,args:u8){
+    pub fn call(&mut self, f: Box<super::Closure>, args: u8) {
         let top = self.stack().top();
-        let mut v = vec!();
-        for i in 0..args{
+        let mut v = vec![];
+        for i in 0..args {
             v.push(self.stack().pop())
         }
         self.push_function_frame_and_args(f, v);
         // self.stack().pc = 0
     }
     // move return value to current stack top
-    pub fn return_(&mut self){
+    pub fn return_(&mut self) {
         let res = self.stack().fixed_tops();
         // pop function call
         self.frames.pop();
-        if !self.stack().check_ramain_enougth(res.len()){panic!("ERROR! STACK OVERFLOWED")}
-        res.iter().for_each(|r|self.stack().push(r.clone()))
+        if !self.stack().check_ramain_enougth(res.len()) {
+            panic!("ERROR! STACK OVERFLOWED")
+        }
+        res.iter().for_each(|r| self.stack().push(r.clone()))
     }
     pub fn execute(&mut self) {
         loop {
@@ -128,7 +134,8 @@ impl State {
                         use super::super::op::cf::*;
                         match iins {
                             JMP => {
-                                let value = unsafe{JMP_OP.get_fix().opmode.get_ax(*(ins as *const u32))};;
+                                let value =
+                                    unsafe { JMP_OP.get_fix().opmode.get_ax(*(ins as *const u32)) };
                                 let label = self
                                     .stack()
                                     .closure
@@ -140,14 +147,17 @@ impl State {
                                 self.stack().closure.current_label_number = label as u16;
                                 *self.pc() = 0;
                             }
-                            UFCALL => {
-                            }
+                            UFCALL => {}
                             CALL => {
-                                let (cls,till) = unsafe{CALL_OP.get_fix().opmode.get_ab(*(ins as *const u32))};
-                                if let super::PrimeValue::Closure(ccls) = self.stack().stack[cls as usize].clone().0{
+                                let (cls, till) = unsafe {
+                                    CALL_OP.get_fix().opmode.get_ab(*(ins as *const u32))
+                                };
+                                if let super::PrimeValue::Closure(ccls) =
+                                    self.stack().get(cls as isize).clone().0
+                                {
                                     self.call(Box::new(ccls), till)
-                                }else{
-                                    panic!("ERROR! RS{} IS NOT CLOSURE",cls)
+                                } else {
+                                    panic!("ERROR! RS{} IS NOT CLOSURE", cls)
                                 }
                             }
                             TAILCALL => {
@@ -160,7 +170,7 @@ impl State {
                             }
                             RET => {
                                 self.frames.pop();
-                                if self.frames.len() == 0{
+                                if self.frames.len() == 0 {
                                     return;
                                 }
                             }
@@ -172,19 +182,84 @@ impl State {
                         break;
                     }
                     // // comp
-                    // else if ins < 0 && ins > 0 {
-                    // }
+                    else if iins > 0x89 && iins < 0xB0 {
+                        use super::super::op::comp::*;
+                        match iins {
+                            EQ => {
+                                use super::super::super::bin_format::*;
+                                let (dst, src1, src2) = unsafe {
+                                    EQ_OP.get_fix().opmode.get_abc(*(ins as *const u32))
+                                };
+                                let vsrc1 = self.stack().get(src1 as isize);
+                                let vsrc2 = self.stack().get(src2 as isize);
+                                let res = super::eq(vsrc1, vsrc2);
+                                self.stack().set(dst as isize, res);
+                            },
+                            LE => {
+                                use super::super::super::bin_format::*;
+                                let (dst, src1, src2) = unsafe {
+                                    LE_OP.get_fix().opmode.get_abc(*(ins as *const u32))
+                                };
+                                let vsrc1 = self.stack().get(src1 as isize);
+                                let vsrc2 = self.stack().get(src2 as isize);
+                                let res = super::le(vsrc1, vsrc2);
+                                self.stack().set(dst as isize, res);
+                            },
+                            GT => {
+                                use super::super::super::bin_format::*;
+                                let (dst, src1, src2) = unsafe {
+                                    GT_OP.get_fix().opmode.get_abc(*(ins as *const u32))
+                                };
+                                let vsrc1 = self.stack().get(src1 as isize);
+                                let vsrc2 = self.stack().get(src2 as isize);
+                                let res = super::gt(vsrc1, vsrc2);
+                                self.stack().set(dst as isize, res);
+                            },
+                            NEQ => {
+                                use super::super::super::bin_format::*;
+                                let (dst, src1, src2) = unsafe {
+                                    NEQ_OP.get_fix().opmode.get_abc(*(ins as *const u32))
+                                };
+                                let vsrc1 = self.stack().get(src1 as isize);
+                                let vsrc2 = self.stack().get(src2 as isize);
+                                let res = super::neq(vsrc1, vsrc2);
+                                self.stack().set(dst as isize, res);
+                            },
+                            LEEQ => {
+                                use super::super::super::bin_format::*;
+                                let (dst, src1, src2) = unsafe {
+                                    LEEQ_OP.get_fix().opmode.get_abc(*(ins as *const u32))
+                                };
+                                let vsrc1 = self.stack().get(src1 as isize);
+                                let vsrc2 = self.stack().get(src2 as isize);
+                                let res = super::leeq(vsrc1, vsrc2);
+                                self.stack().set(dst as isize, res);
+                            },
+                            GTEQ => {
+                                use super::super::super::bin_format::*;
+                                let (dst, src1, src2) = unsafe {
+                                    GTEQ_OP.get_fix().opmode.get_abc(*(ins as *const u32))
+                                };
+                                let vsrc1 = self.stack().get(src1 as isize);
+                                let vsrc2 = self.stack().get(src2 as isize);
+                                let res = super::gteq(vsrc1, vsrc2);
+                                self.stack().set(dst as isize, res);
+                            },
+                            _ => unimplemented!(),
+                        }
+                        break;
+                    }
                     // num
                     else if iins > 0x59 && iins < 0x90 {
                         use super::super::op::arith::*;
                         match iins {
-                            NEGM => {}
-                            ADDM => {}
-                            SUBM => {}
-                            MULM => {}
-                            MODM => {}
-                            POWM => {}
-                            DIVM => {}
+                            // NEGM => {}
+                            // ADDM => {}
+                            // SUBM => {}
+                            // MULM => {}
+                            // MODM => {}
+                            // POWM => {}
+                            // DIVM => {}
                             NEG => {
                                 let opmodes = unsafe {
                                     NEGM_OP.get_fix().opmode.get_ab(*(ins as *const u32))
@@ -194,20 +269,24 @@ impl State {
                                 use super::PrimeValue::*;
                                 use super::Value;
 
-                                match &mut self.stack().stack[rs2 as usize].0 {
+                                match &mut self.stack().get(rs2 as isize).0 {
                                     Null => {
-                                        self.stack().stack[rs1 as usize] = Value::from(Null);
+                                        self.stack().set(rs1 as isize, Value::from(Null));
                                     }
                                     Char(c) => {
-                                        self.stack().stack[rs1 as usize] =
-                                            Value::from(Char((-(*c as i16)) as u16))
+                                        self.stack().set(
+                                            rs1 as isize,
+                                            Value::from(Char((-(*c as i16)) as u16)),
+                                        );
                                     }
                                     Int(i) => {
-                                        self.stack().stack[rs1 as usize] =
-                                            Value::from(Int((-(*i as i32)) as u32))
+                                        self.stack().set(
+                                            rs1 as isize,
+                                            Value::from(Int((-(*i as i32)) as u32)),
+                                        );
                                     }
                                     Num(n) => {
-                                        self.stack().stack[rs1 as usize] = Value::from(Num(-*n))
+                                        self.stack().set(rs1 as isize, Value::from(Num(-*n)));
                                     }
                                     _ => unimplemented!(),
                                 }
@@ -216,19 +295,54 @@ impl State {
                             }
                             ADD => {
                                 use super::super::super::bin_format::*;
-                                let (dst,src1,src2) = unsafe {
+                                let (dst, src1, src2) = unsafe {
                                     ADD_OP.get_fix().opmode.get_abc(*(ins as *const u32))
                                 };
                                 let vsrc1 = self.stack().get(src1 as isize);
                                 let vsrc2 = self.stack().get(src2 as isize);
-                                let res = super::add(vsrc1,vsrc2);
-                                self.stack().stack[dst as usize] = res;
+                                let res = super::add(vsrc1, vsrc2);
+                                self.stack().set(dst as isize, res);
                             }
-                            SUB => {}
-                            MUL => {}
-                            MOD => {}
-                            POW => {}
-                            DIV => {}
+                            SUB => {
+                                use super::super::super::bin_format::*;
+                                let (dst, src1, src2) = unsafe {
+                                    ADD_OP.get_fix().opmode.get_abc(*(ins as *const u32))
+                                };
+                                let vsrc1 = self.stack().get(src1 as isize);
+                                let vsrc2 = self.stack().get(src2 as isize);
+                                let res = super::sub(vsrc1, vsrc2);
+                                self.stack().set(dst as isize, res);
+                            }
+                            MUL => {
+                                use super::super::super::bin_format::*;
+                                let (dst, src1, src2) = unsafe {
+                                    ADD_OP.get_fix().opmode.get_abc(*(ins as *const u32))
+                                };
+                                let vsrc1 = self.stack().get(src1 as isize);
+                                let vsrc2 = self.stack().get(src2 as isize);
+                                let res = super::mul(vsrc1, vsrc2);
+                                self.stack().set(dst as isize, res);
+                            }
+                            MOD => {
+                                use super::super::super::bin_format::*;
+                                let (dst, src1, src2) = unsafe {
+                                    ADD_OP.get_fix().opmode.get_abc(*(ins as *const u32))
+                                };
+                                let vsrc1 = self.stack().get(src1 as isize);
+                                let vsrc2 = self.stack().get(src2 as isize);
+                                let res = super::modu(vsrc1, vsrc2);
+                                self.stack().set(dst as isize, res);
+                            }
+                            DIV => {
+                                use super::super::super::bin_format::*;
+                                let (dst, src1, src2) = unsafe {
+                                    ADD_OP.get_fix().opmode.get_abc(*(ins as *const u32))
+                                };
+                                let vsrc1 = self.stack().get(src1 as isize);
+                                let vsrc2 = self.stack().get(src2 as isize);
+                                let res = super::div(vsrc1, vsrc2);
+                                self.stack().set(dst as isize, res);
+                            }
                             IDIV => {}
                             BNOT => {}
                             BAND => {}
@@ -246,14 +360,18 @@ impl State {
                         use super::super::op::stack::*;
                         match iins {
                             CLOSURE => {
-                                let idx = unsafe{CLOSURE_OP.get_fix().opmode.get_ax(*(ins as *const u32))};
+                                let idx = unsafe {
+                                    CLOSURE_OP.get_fix().opmode.get_ax(*(ins as *const u32))
+                                };
                                 self.load_func(idx as usize);
-                            },
+                            }
                             FIXTOP => {
-                                let idx = unsafe{FIXTOP_OP.get_fix().opmode.get_a(*(ins as *const u32))};
+                                let idx = unsafe {
+                                    FIXTOP_OP.get_fix().opmode.get_a(*(ins as *const u32))
+                                };
                                 self.stack().fix_to_top(idx as usize);
                             }
-                            _ => unimplemented!()
+                            _ => unimplemented!(),
                         }
                         break;
                     }

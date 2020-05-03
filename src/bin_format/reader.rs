@@ -206,7 +206,7 @@ impl Reader {
         } else if tag == TAG_NULL {
             return Null;
         } else if tag == TAG_BOOL {
-            return Bool(self.read_byte());
+            return Bool(self.read_byte() != 0x00);
         } else if tag == TAG_INT {
             return Int(self.read_vm_int());
         } else if tag == TAG_NUM {

@@ -18,7 +18,7 @@ lazy_static! {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Constant {
     Null,
-    Bool(u8),
+    Bool(VMBool),
     // up no need pool just need to implement in row
     Int(VMInt),
     Num(VMNum),
