@@ -15,7 +15,7 @@ pub const LOADBOOL: u8 = 0x03;
 pub const LOADK_OP: Op = Op::VAR(VarOp{op:LOADK,len:5,offset:0});
 
 pub const LOADNULL_OP: Op = Op::FIX(FixOp{op:LOADNULL,opmode:FixOpMode::AB(RS,RS)});
-pub const LOADBOOL_OP: Op = Op::FIX(FixOp{op:LOADBOOL,opmode:FixOpMode::None});
+pub const LOADBOOL_OP: Op = Op::FIX(FixOp{op:LOADBOOL,opmode:FixOpMode::A(RS)});
 // pub const LOADCHAR_OP: Op = Op::FIX(FixOp{op:LOADCHAR,opmode:FixOpMode::None});
 // pub const LOADINT_OP: Op = Op::FIX(FixOp{op:LOADINT,opmode:FixOpMode::None});
 // pub const LOADFLOAT_OP: Op = Op::VAR(VarOp{op:LOADFLOAT,len:64,offset:0});

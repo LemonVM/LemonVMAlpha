@@ -88,13 +88,14 @@ impl State {
     pub fn execute(&mut self) {
         loop {
             if let Some(ins) = self.fetch() {
-                let iins = unsafe { *ins as u8 };
+                let mut iins = unsafe { *ins as u8 };
                 println!("IR: 0x{:02x}", iins);
                 loop {
                     // vm
                     if iins == 0x00 {
                         // debug
                         println!("NOP");
+                        println!("{:?}",self.stack());
                         break;
                     }
                     // load
@@ -112,7 +113,6 @@ impl State {
                                 let cons = get_constant(tag, uuid);
                                 self.stack()
                                     .push(Value::from(super::PrimeValue::from(cons)));
-                                break;
                             }
                             LOADNULL => {
                                 let opmodes = unsafe {
@@ -121,18 +121,67 @@ impl State {
                                 let rs1 = opmodes.0;
                                 let rs2 = opmodes.1;
                                 for i in rs1..rs2 {
-                                    self.stack().push(Value::from(super::PrimeValue::Null));
+                                    let res = self.stack().stack.try_push(Value::from(super::PrimeValue::Null));
+                                    if res.is_err(){
+                                        eprintln!("well~ this is a bug, trying to fix");
+                                    }
                                 }
-                                break;
                             }
-                            LOADBOOL => unimplemented!(),
+                            LOADBOOL => {
+                                let (b) = unsafe {
+                                    LOADBOOL_OP.get_fix().opmode.get_a(*(ins as *const u32))
+                                };
+                                if b != 0x00 {
+                                    self.stack()
+                                        .push(Value::from(super::PrimeValue::Bool(true)));
+                                } else {
+                                    self.stack()
+                                        .push(Value::from(super::PrimeValue::Bool(false)));
+                                }
+                            }
                             _ => unimplemented!(),
                         }
+                        break;
                     }
                     // cf
                     else if iins > 0x19 && iins < 0x40 {
                         use super::super::op::cf::*;
                         match iins {
+                            JPE => {
+                                let (e, loc) = unsafe {
+                                    JPE_OP.get_fix().opmode.get_abx(*(ins as *const u32))
+                                };
+                                if self.stack().get(e as isize).0 == super::PrimeValue::Bool(true) {
+                                    let label = self
+                                        .stack()
+                                        .closure
+                                        .func
+                                        .instruction_table
+                                        .iter()
+                                        .position(|r| r.label == loc)
+                                        .expect("ERROR! LABEL DOES NOT EXIST");
+                                    self.stack().closure.current_label_number = label as u16;
+                                    *self.pc() = 0;
+                                }
+                            }
+                            JPN => {
+                                let (e, loc) = unsafe {
+                                    JPE_OP.get_fix().opmode.get_abx(*(ins as *const u32))
+                                };
+                                if self.stack().get(e as isize).0 == super::PrimeValue::Bool(false)
+                                {
+                                    let label = self
+                                        .stack()
+                                        .closure
+                                        .func
+                                        .instruction_table
+                                        .iter()
+                                        .position(|r| r.label == loc)
+                                        .expect("ERROR! LABEL DOES NOT EXIST");
+                                    self.stack().closure.current_label_number = label as u16;
+                                    *self.pc() = 0;
+                                }
+                            }
                             JMP => {
                                 let value =
                                     unsafe { JMP_OP.get_fix().opmode.get_ax(*(ins as *const u32)) };
@@ -166,7 +215,9 @@ impl State {
                                 use std::iter::FromIterator;
                                 let mut new_stack = self.stack().fixed_tops();
                                 self.stack().stack = ArrayVec::from_iter(new_stack);
+                                println!("============= TAIL CALL ===========\nstack: {:?}",self.stack());
                                 *self.pc() = 0;
+                                self.stack().fixed_top = 255;
                             }
                             RET => {
                                 self.frames.pop();
@@ -187,34 +238,31 @@ impl State {
                         match iins {
                             EQ => {
                                 use super::super::super::bin_format::*;
-                                let (dst, src1, src2) = unsafe {
-                                    EQ_OP.get_fix().opmode.get_abc(*(ins as *const u32))
-                                };
+                                let (dst, src1, src2) =
+                                    unsafe { EQ_OP.get_fix().opmode.get_abc(*(ins as *const u32)) };
                                 let vsrc1 = self.stack().get(src1 as isize);
                                 let vsrc2 = self.stack().get(src2 as isize);
                                 let res = super::eq(vsrc1, vsrc2);
                                 self.stack().set(dst as isize, res);
-                            },
+                            }
                             LE => {
                                 use super::super::super::bin_format::*;
-                                let (dst, src1, src2) = unsafe {
-                                    LE_OP.get_fix().opmode.get_abc(*(ins as *const u32))
-                                };
+                                let (dst, src1, src2) =
+                                    unsafe { LE_OP.get_fix().opmode.get_abc(*(ins as *const u32)) };
                                 let vsrc1 = self.stack().get(src1 as isize);
                                 let vsrc2 = self.stack().get(src2 as isize);
                                 let res = super::le(vsrc1, vsrc2);
                                 self.stack().set(dst as isize, res);
-                            },
+                            }
                             GT => {
                                 use super::super::super::bin_format::*;
-                                let (dst, src1, src2) = unsafe {
-                                    GT_OP.get_fix().opmode.get_abc(*(ins as *const u32))
-                                };
+                                let (dst, src1, src2) =
+                                    unsafe { GT_OP.get_fix().opmode.get_abc(*(ins as *const u32)) };
                                 let vsrc1 = self.stack().get(src1 as isize);
                                 let vsrc2 = self.stack().get(src2 as isize);
                                 let res = super::gt(vsrc1, vsrc2);
                                 self.stack().set(dst as isize, res);
-                            },
+                            }
                             NEQ => {
                                 use super::super::super::bin_format::*;
                                 let (dst, src1, src2) = unsafe {
@@ -224,7 +272,7 @@ impl State {
                                 let vsrc2 = self.stack().get(src2 as isize);
                                 let res = super::neq(vsrc1, vsrc2);
                                 self.stack().set(dst as isize, res);
-                            },
+                            }
                             LEEQ => {
                                 use super::super::super::bin_format::*;
                                 let (dst, src1, src2) = unsafe {
@@ -234,7 +282,7 @@ impl State {
                                 let vsrc2 = self.stack().get(src2 as isize);
                                 let res = super::leeq(vsrc1, vsrc2);
                                 self.stack().set(dst as isize, res);
-                            },
+                            }
                             GTEQ => {
                                 use super::super::super::bin_format::*;
                                 let (dst, src1, src2) = unsafe {
@@ -244,7 +292,7 @@ impl State {
                                 let vsrc2 = self.stack().get(src2 as isize);
                                 let res = super::gteq(vsrc1, vsrc2);
                                 self.stack().set(dst as isize, res);
-                            },
+                            }
                             _ => unimplemented!(),
                         }
                         break;

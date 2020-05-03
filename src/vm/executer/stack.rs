@@ -63,12 +63,13 @@ impl Stack{
     }
 
     pub fn set(&mut self, idx: isize, val: Value) {
-        // let abs_idx = self.abs_index(idx);
-        // if self.is_valid_abs(abs_idx) {
+        let abs_idx = self.abs_index(idx);
+        if self.is_valid_abs(abs_idx) {
+            use std::panic;
             self.stack[idx as usize] = val;
-        // } else {
-        //     eprintln!("ERROR! INVALID INDEX {}",idx);
-        // }
+        } else {
+            eprintln!("ERROR! INVALID INDEX {}",idx);
+        }
     }
 
     pub fn reverse(&mut self, mut from: usize, mut to: usize) {

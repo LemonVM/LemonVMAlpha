@@ -155,12 +155,17 @@ binary_comp_expr!(le,<);
 binary_comp_expr!(gt,>);
 
 
-#[derive(Debug,Clone)]
+#[derive(Clone)]
 pub struct Closure{
     func: Box<super::super::bin_format::func_type::FuncType>,
     arg_types: Vec<Type>,
     ret_types: Vec<Type>,
     current_label_number: u16 // this is not the label name
+}
+impl std::fmt::Debug for Closure{
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_fmt(format_args!("<<Closure: {}|{} >>",(*self.func).name,(*self.func).uuid))
+        }
 }
 impl Closure{
     fn new(func:Box<super::super::bin_format::func_type::FuncType>,arg_types:Vec<Type>,ret_types:Vec<Type>)->Closure{
