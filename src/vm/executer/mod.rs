@@ -6,6 +6,78 @@ use super::super::bin_format::*;
 #[derive(Debug, Clone, PartialEq)]
 pub struct Value(pub PrimeValue, pub Type);
 
+macro_rules! tylet {
+    ($t1:ident,$v1:tt,$t2:ident,$v2:tt,$t3:ident,$t4:ty) => {
+        if let PrimeValue::$t1(c1) = $v1{
+            if let PrimeValue::$t2(c2) = $v2{
+                let ret = PrimeValue::$t3(c1 as $t4 + c2 as $t4);
+                Value::from(ret)
+            }else{
+                panic!("ERROR! TYPE NOT MATCH WITH VALUE")
+            }
+        }else{
+            panic!("ERROR! TYPE NOT MATCH WITH VALUE")
+        }
+    };
+}
+
+pub fn add(a:Value,b:Value)->Value{
+    use super::super::bin_format::*;
+    use super::super::bin_format::Type::*;
+    let Value(v1,t1) = a.clone();
+    let Value(v2,t2) = b.clone();
+    use PrimeValue::*;
+    match t1{
+        Type::Null => {b},
+        Mono(TAG_CHAR) => {
+            match t2{
+                Type::Null => {a},
+                Mono(TAG_CHAR) => {
+                    tylet!(Char,v1,Char,v2,Char,VMChar)
+                },
+                Mono(TAG_INT) => {
+                    tylet!(Char,v1,Int,v2,Int,VMInt)
+                },
+                Mono(TAG_NUM) => {
+                    tylet!(Char,v1,Num,v2,Num,VMNum)
+                },
+                _ => unimplemented!()
+            }
+        },
+        Mono(TAG_INT) => {
+            match t2{
+                Type::Null => {a},
+                Mono(TAG_CHAR) => {
+                    tylet!(Int,v1,Char,v2,Int,VMInt)
+                },
+                Mono(TAG_INT) => {
+                    tylet!(Int,v1,Int,v2,Int,VMInt)
+                },
+                Mono(TAG_NUM) => {
+                    tylet!(Int,v1,Num,v2,Num,VMNum)
+                },
+                _ => unimplemented!()
+            }
+        },
+        Mono(TAG_NUM) => {
+            match t2{
+                Type::Null => {a},
+                Mono(TAG_CHAR) => {
+                    tylet!(Num,v1,Char,v2,Num,VMNum)
+                },
+                Mono(TAG_INT) => {
+                    tylet!(Num,v1,Int,v2,Num,VMNum)
+                },
+                Mono(TAG_NUM) => {
+                    tylet!(Num,v1,Num,v2,Num,VMNum)
+                },
+                _ => unimplemented!()
+            }
+        },
+        _ => unimplemented!()
+    }
+}
+
 #[derive(Debug,Clone)]
 pub struct Closure{
     func: Box<super::super::bin_format::func_type::FuncType>,

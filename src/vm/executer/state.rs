@@ -128,7 +128,7 @@ impl State {
                         use super::super::op::cf::*;
                         match iins {
                             JMP => {
-                                let value = unsafe { *(ins.add(1) as *const u16) };
+                                let value = unsafe{JMP_OP.get_fix().opmode.get_ax(*(ins as *const u32))};;
                                 let label = self
                                     .stack()
                                     .closure
@@ -143,8 +143,7 @@ impl State {
                             UFCALL => {
                             }
                             CALL => {
-                                let cls = unsafe { *(ins.add(1)) };
-                                let till = unsafe { *(ins.add(2)) };
+                                let (cls,till) = unsafe{CALL_OP.get_fix().opmode.get_ab(*(ins as *const u32))};
                                 if let super::PrimeValue::Closure(ccls) = self.stack().stack[cls as usize].clone().0{
                                     self.call(Box::new(ccls), till)
                                 }else{
@@ -215,7 +214,16 @@ impl State {
 
                                 break;
                             }
-                            ADD => {}
+                            ADD => {
+                                use super::super::super::bin_format::*;
+                                let (dst,src1,src2) = unsafe {
+                                    ADD_OP.get_fix().opmode.get_abc(*(ins as *const u32))
+                                };
+                                let vsrc1 = self.stack().get(src1 as isize);
+                                let vsrc2 = self.stack().get(src2 as isize);
+                                let res = super::add(vsrc1,vsrc2);
+                                self.stack().stack[dst as usize] = res;
+                            }
                             SUB => {}
                             MUL => {}
                             MOD => {}
@@ -231,17 +239,18 @@ impl State {
                             LEN => {}
                             _ => panic!("ERROR! INSTRUCTION NOT SUPPORTED"),
                         }
+                        break;
                     }
                     // stack
                     else if iins > 0x39 && iins < 0x60 {
                         use super::super::op::stack::*;
                         match iins {
                             CLOSURE => {
-                                let idx = unsafe{*(ins.add(1) as *const u16)};
+                                let idx = unsafe{CLOSURE_OP.get_fix().opmode.get_ax(*(ins as *const u32))};
                                 self.load_func(idx as usize);
                             },
                             FIXTOP => {
-                                let idx = unsafe{*(ins.add(1))};
+                                let idx = unsafe{FIXTOP_OP.get_fix().opmode.get_a(*(ins as *const u32))};
                                 self.stack().fix_to_top(idx as usize);
                             }
                             _ => unimplemented!()
