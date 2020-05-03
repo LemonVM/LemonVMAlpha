@@ -29,7 +29,13 @@ pub const TAG_SIMDNUM: u8 = 0x08;
 pub const TAG_ROW: u8 = 0x09;
 pub const TAG_USERDATA: u8 = 0x10;
 pub const TAG_FUNC:u8 = 0x11;
+<<<<<<< HEAD
 pub type VMBool = bool;
+=======
+pub const TAG_BYTE:u8 = 0x12; // for IO ops
+
+pub type VMByte = u8;
+>>>>>>> 98540befee2279ee6b77d88fba76582b1d0d51a3
 pub type VMChar = u16;
 pub type VMInt = u32;
 pub type VMNum = f64;
