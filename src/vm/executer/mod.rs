@@ -28,6 +28,7 @@ impl PartialEq for Closure{
 pub enum PrimeValue {
     Null,
     Bool(u8),
+    Byte(u8),
     Char(VMChar),
     Int(VMInt),
     Num(VMNum),
@@ -97,6 +98,7 @@ impl From<PrimeValue> for Type {
         match f {
             Null => Self::Null,
             Bool(_) => Self::Mono(TAG_BOOL),
+            Byte(_) => Self::Mono(TAG_BYTE),
             Int(_) => Self::Mono(TAG_INT),
             Num(_) => Self::Mono(TAG_NUM),
             Sym(_) => Self::Mono(TAG_SYM),
