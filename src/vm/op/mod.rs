@@ -17,6 +17,15 @@ impl FixOpMode{
             panic!("ERROR! INSTRUCTION IS NOT AT MODE A");
         }
     }
+    pub fn get_ax(&self,ins:u32)->u16{
+        use FixOpMode::*;
+        if let AX(a) = &self {
+            let a  = (ins >> 8) as u16;
+            a
+        }else{
+            panic!("ERROR! INSTRUCTION IS NOT AT MODE AX");
+        }
+    }
     pub fn get_ab(&self,ins:u32)->(u8,u8){
         use FixOpMode::*;
         if let AB(a,b) = &self {

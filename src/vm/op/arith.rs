@@ -36,6 +36,7 @@ pub const POWM_OP: Op = Op::FIX(FixOp{op:POWM,opmode:FixOpMode::ABC(RS,RS,RS)});
 pub const DIVM_OP: Op = Op::FIX(FixOp{op:DIVM,opmode:FixOpMode::ABC(RS,RS,RS)});
 
 pub const NEG_OP: Op = Op::FIX(FixOp{op:NEG,opmode:FixOpMode::AB(RS,RS)});
+//                                                              dst src src
 pub const ADD_OP: Op = Op::FIX(FixOp{op:ADD,opmode:FixOpMode::ABC(RS,RS,RS)});
 pub const SUB_OP: Op = Op::FIX(FixOp{op:SUB,opmode:FixOpMode::ABC(RS,RS,RS)});
 pub const MUL_OP: Op = Op::FIX(FixOp{op:MUL,opmode:FixOpMode::ABC(RS,RS,RS)});

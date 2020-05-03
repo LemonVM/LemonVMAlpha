@@ -12,15 +12,48 @@ pub mod vm;
 use std::env;
 use bin_format::*;
 fn main() {
-    let args: Vec<String> = env::args().collect();
-    reader::Reader::read_constant_pool_from_file(String::from("./"), args[1].clone());
-    let bc = reader::Reader::read_binary_chunk_from_file(String::from("./"), args[1].clone());
+    let constant_pool = [
+        0x01,
+        0x03,
+        0x02,0x00,0x00,0x00,
+        0x01,0x00,0x00,0x00,0x01,0x00,0x00,0x00,
+        0x02,0x00,0x00,0x00,0x01,0x00,0x00,0x00
+    ];
+    let bytes = [
+        0x03, 0x00, 0x00, 0x00, 
+        0x6a, 0x00, 0x6d,0x00,0x70,0x00,
+        0x00,0x00,0x00,0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,0x00,0x00,0x00,
+        0x00,0x00,0x00,0x00,
+        
+        0x01,0x00,
+    // start
+    // label : 0
+        0x00,0x00,
+        0x04,0x00,0x00,0x00,
+        0xFF,0x01,0x05,0x00,0x03,0x01,0x00,0x00,0x00,
+        0xFF,0x01,0x05,0x00,0x03,0x02,0x00,0x00,0x00,
+        0x00,0x02,0x02,0x03,0x00,
+        0x00,0x69,0x02,0x00,0x01,
+    // end
+        0x00,0x00,0x00,0x00,
+        0x00,0x00,0x00,0x00,
+    ];
+    reader::Reader::read_constant_pool(constant_pool.as_ptr(), constant_pool.len());
+    let mut reader = reader::Reader::new(bytes.as_ptr());
+    let func = reader.read_func();
+    println!("{}",func);
+
     let mut state = vm::executer::state::State::new();
-    let mut stack= vm::executer::stack::Stack::new(Box::new(bc.entry));
+    let mut stack= vm::executer::stack::Stack::new(Box::new(func));
     state.push_stack(stack);
-    println!("===== testing =====");
+    println!("===== testing neg =====");
     println!("before execute {:?}",state.stack().stack);
     state.execute();
     println!("after execute {:?}\n",state.stack().stack);
-    assert_eq!(*state.stack().stack.last().unwrap(),vm::executer::Value(vm::executer::PrimeValue::Null,bin_format::Type::Null));
+    //use bin_format::*;
+    //assert_eq!(*(state.stack().stack.last().unwrap()),super::super::Value(super::super::PrimeValue::Num(-3.1415926),bin_format::Type::Mono(TAG_NUM)))
 }
