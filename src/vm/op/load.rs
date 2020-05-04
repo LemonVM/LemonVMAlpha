@@ -4,6 +4,7 @@ pub const LOADK: u8 = 0x01;
 
 pub const LOADNULL: u8 = 0x02;
 pub const LOADBOOL: u8 = 0x03;
+// we open a hole here for dynlib loading (LOADDYN since 0x04)
 // pub const LOADCHAR: u8 = 0x04;
 // pub const LOADINT: u8 = 0x05;
 // pub const LOADFLOAT: u8 = 0xB6;

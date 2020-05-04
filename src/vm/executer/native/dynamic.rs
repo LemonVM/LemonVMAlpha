@@ -1,2 +1,1 @@
-use std::dynamic_lib::DynamicLibrary;
-
+extern crate libloading as lib;
