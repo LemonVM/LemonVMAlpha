@@ -1,5 +1,6 @@
 pub mod stack;
 pub mod state;
+pub mod native;
 mod test;
 use super::super::bin_format::*;
 
