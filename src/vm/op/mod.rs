@@ -117,4 +117,3 @@ pub mod arith;
 pub mod stack;
 pub mod comp;
 pub mod debug;
-pub mod native;
