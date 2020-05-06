@@ -29,7 +29,7 @@ impl State {
         if let Some(instr) = self
             .stack()
             .closure
-            .func
+            .func()
             .instruction_table
             .get(current_label as usize)?
             .instructions
@@ -46,7 +46,7 @@ impl State {
         }
     }
     pub fn load_func(&mut self, idx: usize) {
-        let func = Box::new(self.stack().closure.func.const_func_refs[idx].clone());
+        let func = Box::new(self.stack().closure.func().const_func_refs[idx].clone());
         self.stack()
             .push(super::Value::from(super::PrimeValue::from(
                 super::super::super::bin_format::constant_and_pool::get_constant(func.0, func.1),
@@ -95,7 +95,7 @@ impl State {
                     if iins == 0x00 {
                         // debug
                         println!("NOP");
-                        println!("{:?}",self.stack());
+                        println!("{:?}", self.stack());
                         break;
                     }
                     // load
@@ -121,8 +121,11 @@ impl State {
                                 let rs1 = opmodes.0;
                                 let rs2 = opmodes.1;
                                 for i in rs1..rs2 {
-                                    let res = self.stack().stack.try_push(Value::from(super::PrimeValue::Null));
-                                    if res.is_err(){
+                                    let res = self
+                                        .stack()
+                                        .stack
+                                        .try_push(Value::from(super::PrimeValue::Null));
+                                    if res.is_err() {
                                         eprintln!("well~ this is a bug, trying to fix");
                                     }
                                 }
@@ -155,7 +158,7 @@ impl State {
                                     let label = self
                                         .stack()
                                         .closure
-                                        .func
+                                        .func()
                                         .instruction_table
                                         .iter()
                                         .position(|r| r.label == loc)
@@ -173,7 +176,7 @@ impl State {
                                     let label = self
                                         .stack()
                                         .closure
-                                        .func
+                                        .func()
                                         .instruction_table
                                         .iter()
                                         .position(|r| r.label == loc)
@@ -188,7 +191,7 @@ impl State {
                                 let label = self
                                     .stack()
                                     .closure
-                                    .func
+                                    .func()
                                     .instruction_table
                                     .iter()
                                     .position(|r| r.label == value)
@@ -215,7 +218,10 @@ impl State {
                                 use std::iter::FromIterator;
                                 let mut new_stack = self.stack().fixed_tops();
                                 self.stack().stack = ArrayVec::from_iter(new_stack);
-                                println!("============= TAIL CALL ===========\nstack: {:?}",self.stack());
+                                println!(
+                                    "============= TAIL CALL ===========\nstack: {:?}",
+                                    self.stack()
+                                );
                                 *self.pc() = 0;
                                 self.stack().fixed_top = 255;
                             }
@@ -227,6 +233,35 @@ impl State {
                             }
                             RETURN => {
                                 self.return_();
+                            }
+                            CALLC => {
+                                let (a, b, till) = unsafe {
+                                    CALLC_OP.get_fix().opmode.get_abc(*(ins as *const u32))
+                                };
+                                if let super::Value(super::PrimeValue::NType(ty), _) =
+                                    self.stack().pop()
+                                {
+                                    if let super::Value(super::PrimeValue::Sym(path), _) =
+                                        self.stack().get(a as isize)
+                                    {
+                                        if let super::Value(super::PrimeValue::Sym(name), _) =
+                                            self.stack().get(b as isize)
+                                        {
+                                            let r = super::ffi::dynamic_lib::pass_args_to_NFunc_and_call(
+                                                path,name,ty,
+                                                self.stack(),
+                                                till,
+                                            );
+                                            self.stack().push(r);
+                                        } else {
+                                            panic!("ERROR! IS NOT SYM")
+                                        }
+                                    } else {
+                                        panic!("ERROR! IS NOT SYM")
+                                    }
+                                } else {
+                                    panic!("ERROR! IS NOT TYPE")
+                                }
                             }
                             _ => unimplemented!(),
                         }
@@ -242,7 +277,7 @@ impl State {
                                     unsafe { EQ_OP.get_fix().opmode.get_abc(*(ins as *const u32)) };
                                 let vsrc1 = self.stack().get(src1 as isize);
                                 let vsrc2 = self.stack().get(src2 as isize);
-                                let res = super::eq(vsrc1, vsrc2);
+                                let res = super::super::op::comp::eq(vsrc1, vsrc2);
                                 self.stack().set(dst as isize, res);
                             }
                             LE => {
@@ -251,7 +286,7 @@ impl State {
                                     unsafe { LE_OP.get_fix().opmode.get_abc(*(ins as *const u32)) };
                                 let vsrc1 = self.stack().get(src1 as isize);
                                 let vsrc2 = self.stack().get(src2 as isize);
-                                let res = super::le(vsrc1, vsrc2);
+                                let res = super::super::op::comp::le(vsrc1, vsrc2);
                                 self.stack().set(dst as isize, res);
                             }
                             GT => {
@@ -260,7 +295,7 @@ impl State {
                                     unsafe { GT_OP.get_fix().opmode.get_abc(*(ins as *const u32)) };
                                 let vsrc1 = self.stack().get(src1 as isize);
                                 let vsrc2 = self.stack().get(src2 as isize);
-                                let res = super::gt(vsrc1, vsrc2);
+                                let res = super::super::op::comp::gt(vsrc1, vsrc2);
                                 self.stack().set(dst as isize, res);
                             }
                             NEQ => {
@@ -270,7 +305,7 @@ impl State {
                                 };
                                 let vsrc1 = self.stack().get(src1 as isize);
                                 let vsrc2 = self.stack().get(src2 as isize);
-                                let res = super::neq(vsrc1, vsrc2);
+                                let res = super::super::op::comp::neq(vsrc1, vsrc2);
                                 self.stack().set(dst as isize, res);
                             }
                             LEEQ => {
@@ -280,7 +315,7 @@ impl State {
                                 };
                                 let vsrc1 = self.stack().get(src1 as isize);
                                 let vsrc2 = self.stack().get(src2 as isize);
-                                let res = super::leeq(vsrc1, vsrc2);
+                                let res = super::super::op::comp::leeq(vsrc1, vsrc2);
                                 self.stack().set(dst as isize, res);
                             }
                             GTEQ => {
@@ -290,7 +325,7 @@ impl State {
                                 };
                                 let vsrc1 = self.stack().get(src1 as isize);
                                 let vsrc2 = self.stack().get(src2 as isize);
-                                let res = super::gteq(vsrc1, vsrc2);
+                                let res = super::super::op::comp::gteq(vsrc1, vsrc2);
                                 self.stack().set(dst as isize, res);
                             }
                             _ => unimplemented!(),
@@ -348,7 +383,7 @@ impl State {
                                 };
                                 let vsrc1 = self.stack().get(src1 as isize);
                                 let vsrc2 = self.stack().get(src2 as isize);
-                                let res = super::add(vsrc1, vsrc2);
+                                let res = super::super::op::arith::add(vsrc1, vsrc2);
                                 self.stack().set(dst as isize, res);
                             }
                             SUB => {
@@ -358,7 +393,7 @@ impl State {
                                 };
                                 let vsrc1 = self.stack().get(src1 as isize);
                                 let vsrc2 = self.stack().get(src2 as isize);
-                                let res = super::sub(vsrc1, vsrc2);
+                                let res = super::super::op::arith::sub(vsrc1, vsrc2);
                                 self.stack().set(dst as isize, res);
                             }
                             MUL => {
@@ -368,7 +403,7 @@ impl State {
                                 };
                                 let vsrc1 = self.stack().get(src1 as isize);
                                 let vsrc2 = self.stack().get(src2 as isize);
-                                let res = super::mul(vsrc1, vsrc2);
+                                let res = super::super::op::arith::mul(vsrc1, vsrc2);
                                 self.stack().set(dst as isize, res);
                             }
                             MOD => {
@@ -378,7 +413,7 @@ impl State {
                                 };
                                 let vsrc1 = self.stack().get(src1 as isize);
                                 let vsrc2 = self.stack().get(src2 as isize);
-                                let res = super::modu(vsrc1, vsrc2);
+                                let res = super::super::op::arith::modu(vsrc1, vsrc2);
                                 self.stack().set(dst as isize, res);
                             }
                             DIV => {
@@ -388,7 +423,7 @@ impl State {
                                 };
                                 let vsrc1 = self.stack().get(src1 as isize);
                                 let vsrc2 = self.stack().get(src2 as isize);
-                                let res = super::div(vsrc1, vsrc2);
+                                let res = super::super::op::arith::div(vsrc1, vsrc2);
                                 self.stack().set(dst as isize, res);
                             }
                             IDIV => {}

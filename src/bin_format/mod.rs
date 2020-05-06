@@ -30,6 +30,7 @@ pub const TAG_ROW: u8 = 0x09;
 pub const TAG_USERDATA: u8 = 0x10;
 pub const TAG_FUNC:u8 = 0x11;
 pub const TAG_BYTE:u8 = 0x12; // for IO ops
+pub const TAG_TYPE:u8 = 0x13;
 
 pub type VMBool = bool;
 pub type VMByte = u8;
@@ -104,7 +105,7 @@ impl Header {
 use arrayvec::*;
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Type {
-    Null, // 0x00
+    Kind, // 0x00
     Mono(u8), // 0x01 0x??
     
     Poly(Box<Type>,Vec<Type>), // 0x02 type types
@@ -117,7 +118,7 @@ pub enum Type {
 use std::collections::HashSet;
 impl Type{
     pub fn holes_count(&self)->HashSet<Type>{
-        use Type::*;
+        use self::Type::*;
         if let Poly(h,ts) = self.clone(){
             match *h{
                 Arrow(args,rets) => {

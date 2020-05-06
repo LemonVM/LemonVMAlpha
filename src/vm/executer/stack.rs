@@ -23,7 +23,7 @@ impl Stack{
         Stack{stack:ArrayVec::new(),pc:0,ir:std::ptr::null(),closure,fixed_top:255}
     }
     pub fn new(func:Box<super::super::super::bin_format::func_type::FuncType>)->Stack{
-        Stack{stack:ArrayVec::new(),pc:0,ir:std::ptr::null(),closure:Box::new(Closure::new(func.clone(),func.arg_types,func.ret_types)),fixed_top:255} //FIXME:GC this will be allocated in heap
+        Stack{stack:ArrayVec::new(),pc:0,ir:std::ptr::null(),closure:Box::new(Closure::new(func.uuid,FuncInClosure::Func(func.clone()),func.arg_types,func.ret_types)),fixed_top:255} //FIXME:GC this will be allocated in heap
     }
 
     pub fn top(&self) -> isize {

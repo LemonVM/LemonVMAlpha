@@ -165,6 +165,14 @@ impl Reader {
                             .1
                             .insert(reader.read_vm_int(), reader.read_constant(tag));
                     }
+                    TAG_TYPE => {
+                        super::constant_and_pool::CONSTANT_POOL
+                            .write()
+                            .unwrap()
+                            .pool_of_type
+                            .1
+                            .insert(reader.read_vm_int(), reader.read_constant(tag));
+                    }
                     _ => unimplemented!(),
                 }
             }
@@ -236,6 +244,8 @@ impl Reader {
             );
         } else if tag == TAG_FUNC {
             return Func(self.read_func());
+        } else if tag == TAG_TYPE {
+            return NType(self.read_type());
         } else {
             unimplemented!()
         }
@@ -274,7 +284,7 @@ impl Reader {
         use super::Type::*;
         let flag = self.read_byte();
         match flag {
-            0x00 => Null,
+            0x00 => Kind,
             0x01 => Mono(self.read_byte()),
             0x02 => Poly(Box::new(self.read_type()), self.read_vec(|r| r.read_type())),
             0x04 => Row(self.read_vec(|r| (r.read_vm_symbol(), r.read_type()))),
