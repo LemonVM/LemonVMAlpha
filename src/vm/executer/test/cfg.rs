@@ -63,7 +63,7 @@ fn TestFuncCall() {
     println!("before execute {:?}",state.stack().stack);
     state.execute();
     println!("after execute {:?}\n",state.stack().stack);
-    assert_eq!(*state.stack().stack.last().unwrap(),super::super::Value(super::super::PrimeValue::Null,super::super::super::super::bin_format::Type::Null));
+    assert_eq!(*state.stack().stack.last().unwrap(),super::super::Value(super::super::PrimeValue::Null,super::super::super::super::bin_format::Type::Kind));
 }
 #[test]
 fn TestJMP(){
@@ -115,7 +115,7 @@ fn TestJMP(){
     println!("before execute {:?}",state.stack().stack);
     state.execute();
     println!("after execute {:?}\n",state.stack().stack);
-    assert_eq!(*state.stack().stack.last().unwrap(),super::super::Value(super::super::PrimeValue::Null,super::super::super::super::bin_format::Type::Null));
+    assert_eq!(*state.stack().stack.last().unwrap(),super::super::Value(super::super::PrimeValue::Null,super::super::super::super::bin_format::Type::Kind));
 }
 
 #[test]

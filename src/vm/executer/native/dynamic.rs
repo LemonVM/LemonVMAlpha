@@ -1,1 +1,0 @@
-extern crate libloading as lib;

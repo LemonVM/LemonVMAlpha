@@ -10,7 +10,6 @@ pub const CALLC: u8 = 0x28;
 pub const TAILCALL: u8 = 0x23;
 pub const RET: u8 = 0x24;
 pub const RETURN: u8 = 0x25;
-// we have a hole here to c abi (CALLCC since 0x26)
 
 //----------
 pub const JMP_OP: Op = Op::FIX(FixOp{op:JMP,opmode:FixOpMode::AX(VI)});
@@ -21,4 +20,10 @@ pub const CALL_OP: Op = Op::FIX(FixOp{op:CALL,opmode:FixOpMode::AB(RCC,RS)});
 pub const TAILCALL_OP: Op = Op::FIX(FixOp{op:TAILCALL,opmode:FixOpMode::None});
 pub const RET_OP: Op = Op::FIX(FixOp{op:RET,opmode:FixOpMode::None});
 pub const RETURN_OP: Op = Op::FIX(FixOp{op:RET,opmode:FixOpMode::None});
+
+// we open a hole here for native dynlib loading
+// load dynamic lib need path,symbolname
+// we have a hole here to c abi (CALLCC since 0x26)
+//                                                                        path name untill
+// implicitly a type is loaded on the top of the stack to determine the return type
 pub const CALLC_OP: Op = Op::FIX(FixOp { op: CALLC, opmode: FixOpMode::ABC(RS, RS, RS) });
