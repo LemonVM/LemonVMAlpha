@@ -47,3 +47,86 @@ pub const SHL_OP: Op = Op::FIX(FixOp{op:SHL,opmode:FixOpMode::ABC(RS,RS,RS)});
 pub const SHR_OP: Op = Op::FIX(FixOp{op:SHR,opmode:FixOpMode::ABC(RS,RS,RS)});
 pub const BNOT_OP: Op = Op::FIX(FixOp{op:BNOT,opmode:FixOpMode::AB(RS,RS)});
 pub const LEN_OP: Op = Op::FIX(FixOp{op:LEN,opmode:FixOpMode::AB(RS,RS)});
+
+use super::super::super::bin_format::*;
+use super::super::super::bin_format::Type::*;
+use super::super::executer::*;
+macro_rules! tylet {
+    ($t1:ident,$v1:tt,$t2:ident,$v2:tt,$t3:ident,$t4:ty,$s1:tt) => {
+        if let PrimeValue::$t1(c1) = $v1{
+            if let PrimeValue::$t2(c2) = $v2{
+                let ret = PrimeValue::$t3((c1 as $t4) $s1 (c2 as $t4));
+                Value::from(ret)
+            }else{
+                panic!("ERROR! TYPE NOT MATCH WITH VALUE")
+            }
+        }else{
+            panic!("ERROR! TYPE NOT MATCH WITH VALUE")
+        }
+    };
+}
+macro_rules! binary_expr {
+    ($name:ident,$s1:tt) => {
+        pub fn $name(a:Value,b:Value)->Value{
+            let Value(v1,t1) = a.clone();
+            let Value(v2,t2) = b.clone();
+            use PrimeValue::*;
+            match t1{
+                Type::Kind => {b},
+                Mono(TAG_CHAR) => {
+                    match t2{
+                        Type::Kind => {a},
+                        Mono(TAG_CHAR) => {
+                            tylet!(Char,v1,Char,v2,Char,VMChar,$s1)
+                        },
+                        Mono(TAG_INT) => {
+                            tylet!(Char,v1,Int,v2,Int,VMInt,$s1)
+                        },
+                        Mono(TAG_NUM) => {
+                            tylet!(Char,v1,Num,v2,Num,VMNum,$s1)
+                        },
+                        _ => unimplemented!()
+                    }
+                },
+                Mono(TAG_INT) => {
+                    match t2{
+                        Type::Kind => {a},
+                        Mono(TAG_CHAR) => {
+                            tylet!(Int,v1,Char,v2,Int,VMInt,$s1)
+                        },
+                        Mono(TAG_INT) => {
+                            tylet!(Int,v1,Int,v2,Int,VMInt,$s1)
+                        },
+                        Mono(TAG_NUM) => {
+                            tylet!(Int,v1,Num,v2,Num,VMNum,$s1)
+                        },
+                        _ => unimplemented!()
+                    }
+                },
+                Mono(TAG_NUM) => {
+                    match t2{
+                        Type::Kind => {a},
+                        Mono(TAG_CHAR) => {
+                            tylet!(Num,v1,Char,v2,Num,VMNum,$s1)
+                        },
+                        Mono(TAG_INT) => {
+                            tylet!(Num,v1,Int,v2,Num,VMNum,$s1)
+                        },
+                        Mono(TAG_NUM) => {
+                            tylet!(Num,v1,Num,v2,Num,VMNum,$s1)
+                        },
+                        _ => unimplemented!()
+                    }
+                },
+                _ => unimplemented!()
+            }
+        }
+    };
+}
+
+
+binary_expr!(add,+);
+binary_expr!(sub,-);
+binary_expr!(mul,*);
+binary_expr!(div,/);
+binary_expr!(modu,%);

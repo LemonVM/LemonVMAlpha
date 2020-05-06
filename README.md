@@ -1,8 +1,10 @@
 # LemonVM
 ![Rust](https://github.com/LemonHX/LemonVM/workflows/Rust/badge.svg?branch=master)
-
+## Dependencies 依赖
+llvm (libclang for FFI)
 
 ![LemonVM](lemonvm.gif)
+
 <details><summary>Chinese</summary>
 <p>
 

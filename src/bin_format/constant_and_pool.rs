@@ -10,7 +10,8 @@ lazy_static! {
         pool_of_simdint: (TAG_SIMDINT, HashMap::new()),
         pool_of_simdnum: (TAG_SIMDNUM, HashMap::new()),
         pool_of_row: (TAG_ROW, HashMap::new()),
-        pool_of_func: (TAG_FUNC, HashMap::new())
+        pool_of_func: (TAG_FUNC, HashMap::new()),
+        pool_of_type: (TAG_TYPE, HashMap::new())
     });
 }
 
@@ -29,6 +30,7 @@ pub enum Constant {
     SIMDChar(VMChar, VMChar, VMChar, VMChar),
     Func(FuncType),
     Row(Row), // TODO：完成这厮
+    NType(Type),
 }
 
 
@@ -45,7 +47,8 @@ pub struct ConstantPool {
     pub pool_of_simdint: (u8, HashMap<u32, Constant>),
     pub pool_of_simdnum: (u8, HashMap<u32, Constant>),
     pub pool_of_row: (u8, HashMap<u32, Constant>),
-    pub pool_of_func:(u8, HashMap<u32, Constant>)
+    pub pool_of_func:(u8, HashMap<u32, Constant>),
+    pub pool_of_type:(u8, HashMap<u32, Constant>)
 }
 
 pub fn get_constant(tag: u8, uuid: u32) -> Constant {
@@ -58,6 +61,7 @@ pub fn get_constant(tag: u8, uuid: u32) -> Constant {
         TAG_SIMDNUM => CONSTANT_POOL.read().unwrap().pool_of_simdnum.1[&uuid].clone(),
         TAG_ROW => CONSTANT_POOL.read().unwrap().pool_of_row.1[&uuid].clone(),
         TAG_FUNC => CONSTANT_POOL.read().unwrap().pool_of_func.1[&uuid].clone(),
+        TAG_TYPE => CONSTANT_POOL.read().unwrap().pool_of_type.1[&uuid].clone(),
         _ => unimplemented!(),
     }
 }
