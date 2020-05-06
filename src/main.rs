@@ -11,6 +11,34 @@ pub mod bin_format;
 pub mod vm;
 use std::env;
 use bin_format::*;
+
+#[repr(C)]
+struct A{
+    a:i32,
+}
+extern "C" fn push_user_data(state:&mut vm::executer::state::State){
+    use std::alloc::{alloc, dealloc, Layout};
+    unsafe{
+        let layout = Layout::new::<A>();
+        let _1 = alloc(layout) as *mut A;
+    // let mut _1 = System.alloc();    Vec::with_capacity(std::mem::size_of::<A>()).as_mut_ptr();
+        *_1 = A{a:1};
+
+    let value = vm::executer::PrimeValue::UserData(_1 as *mut u8);
+    state.stack().push(vm::executer::Value::from(value));
+    }
+}
+extern "C" fn mod_user_data(state:&mut vm::executer::state::State){
+    let vm::executer::Value(ud,_) = state.stack().stack.last_mut().unwrap();
+    if let vm::executer::PrimeValue::UserData(ud) = ud{
+        let _ud:*mut A = *ud as *mut A;
+        unsafe{(*_ud).a = 2;}
+        // let value = vm::executer::PrimeValue::UserData(_ud as *mut u8);
+        // state.stack().push(vm::executer::Value::from(value));
+    }else{
+        panic!("is not user data");
+    }
+}
 fn main() {
     let constant_pool = [
         0x02,
@@ -33,15 +61,16 @@ fn main() {
         0x00,
         0x00,0x00,0x00,0x00,
         0x00,0x00,0x00,0x00,
-        0x01,0x00,
+        0x00,0x00,
     // start
     // label : 0
-        0x00,0x00,
-        0x04,0x00,0x00,0x00,
-        0xFF,0x01,0x05,0x00,0x05,0x01,0x00,0x00,0x00,
-        0xFF,0x01,0x05,0x00,0x05,0x02,0x00,0x00,0x00,
-        0xFF,0x01,0x05,0x00,0x13,0x01,0x00,0x00,0x00,
-        0x00,0x28,0x00,0x01,0x00,
+        // 0x00,0x00,
+        // 0x01,0x00,0x00,0x00,
+        // // 0xFF,0x01,0x05,0x00,0x05,0x01,0x00,0x00,0x00,
+        // // 0xFF,0x01,0x05,0x00,0x05,0x02,0x00,0x00,0x00,
+        // // 0xFF,0x01,0x05,0x00,0x13,0x01,0x00,0x00,0x00,
+        // // 0x00,0x28,0x00,0x01,0x00,
+        // 0x00,0x00,0x00,0x00,0x00,
     // end
         0x00,0x00,0x00,0x00,
         0x00,0x00,0x00,0x00,
@@ -58,6 +87,8 @@ fn main() {
     state.push_stack(stack);
     println!("===== testing FFI =====");
     println!("before execute {:?}",state.stack().stack);
+    push_user_data(&mut state);
+    mod_user_data(&mut state);
     state.execute();
     println!("after execute {:?}\n",state.stack().stack);
 
