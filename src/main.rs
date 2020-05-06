@@ -11,7 +11,6 @@ pub mod bin_format;
 pub mod vm;
 use std::env;
 use bin_format::*;
-
 #[repr(C)]
 struct A{
     a:i32,
@@ -75,7 +74,6 @@ fn main() {
         0x00,0x00,0x00,0x00,
         0x00,0x00,0x00,0x00,
     ];
-    println!("{}",constant_pool[12]);
     reader::Reader::read_constant_pool(constant_pool.as_ptr(), constant_pool.len());
     println!("{:?}",constant_and_pool::CONSTANT_POOL.read().unwrap());
     let mut reader = reader::Reader::new(bytes.as_ptr());
@@ -85,7 +83,7 @@ fn main() {
     let mut state = vm::executer::state::State::new();
     let mut stack= vm::executer::stack::Stack::new(Box::new(func));
     state.push_stack(stack);
-    println!("===== testing FFI =====");
+    println!("===== testing UserData =====");
     println!("before execute {:?}",state.stack().stack);
     push_user_data(&mut state);
     mod_user_data(&mut state);
