@@ -6,9 +6,14 @@ pub enum Status{
     YIELD = 0x02,
     ERROR = 0xFF,
 }
+use super::stack::IR;
+use async_std::sync::*;
+use super::super::VMMessage;
 pub struct State{
+    pub uuid : u32,
     pub status: Status,
     pub frames: Vec<Stack>,
+    pub sr: (Sender<String>,Receiver<VMMessage>)
 }
 unsafe impl Send for State{}
 unsafe impl Sync for State{}
@@ -25,16 +30,16 @@ impl State {
     pub fn pop_stack(&mut self) {
         self.frames.pop();
     }
-    pub fn new() -> Self {
-        State{ frames: vec![], status:Status::RUNNING}
+    pub fn new(uuid:u32,sender:Sender<String>,receiver:Receiver<VMMessage>) -> Self {
+        State{ uuid,frames: vec![], status:Status::RUNNING,sr:(sender,receiver)}
     }
     pub fn ir(&mut self) -> &mut *const u8 {
-        &mut self.stack().ir
+        &mut self.stack().ir.0
     }
     pub fn pc(&mut self) -> &mut usize {
         &mut self.stack().pc
     }
-    pub fn fetch(&mut self) -> Option<*const u8> {
+    pub fn fetch(&mut self) -> Option<IR> {
         let pc = self.pc().clone();
         let current_label = self.stack().closure.current_label_number;
         if let Some(instr) = self
@@ -49,7 +54,7 @@ impl State {
         {
             *self.pc() += 1;
             *self.ir() = *instr;
-            return Some(*instr);
+            return Some(IR(*instr));
         } else {
             self.stack().closure.current_label_number += 1;
             *self.pc() = 0;
@@ -97,17 +102,52 @@ impl State {
         }
         res.iter().for_each(|r| self.stack().push(r.clone()))
     }
-    pub async fn execute(&mut self) {
+    pub async fn execute(mut self) {
+        let mut bk = false;
         while self.status == Status::RUNNING {
+            use async_std::sync::*;
             if let Some(ins) = self.fetch() {
-                let mut iins = unsafe { *ins as u8 };
+                let mut iins = unsafe { *ins.0 as u8 };
                 println!("IR: 0x{:02x}", iins);
                 loop {
+                    loop{
+                        if self.sr.1.is_empty(){
+                            if bk{
+                                continue;
+                            }else{
+                                break;
+                            }
+                        }
+                        let m = self.sr.1.recv().await;
+                        if let Some(m) = m{
+                            use super::super::VMMessage::*;
+                            match m{
+                                PrintFrame => {
+                                    self.sr.0.send(format!("{:?}",self.frames)).await;
+                                },
+                                PrintStack => {
+                                    self.sr.0.send(format!("{:?}",self.frames.last())).await;
+                                },
+                                Break => {
+                                    bk = true;
+                                },
+                                Continue => {
+                                    bk = false;
+                                }
+                            }
+                        }
+                        if bk{
+                            continue;
+                        }else{
+                            break;
+                        }
+                    }
+
+
                     // vm
                     if iins == 0x00 {
                         // debug
                         println!("NOP");
-                        println!("{:?}", self.stack());
                         break;
                     }
                     // load
@@ -119,8 +159,8 @@ impl State {
                                 let offset = LOADK_OP.get_var().offset;
                                 let len = LOADK_OP.get_var().len;
                                 let total_len = offset + len;
-                                let tag = unsafe { *(ins.add(3)) };
-                                let uuid = unsafe { *(ins.add(3 + 1)) as u32 };
+                                let tag = unsafe { *(ins.0.add(3)) };
+                                let uuid = unsafe { *(ins.0.add(3 + 1)) as u32 };
                                 use super::super::super::bin_format::constant_and_pool::get_constant;
                                 let cons = get_constant(tag, uuid);
                                 self.stack()
@@ -128,7 +168,7 @@ impl State {
                             }
                             LOADNULL => {
                                 let opmodes = unsafe {
-                                    LOADNULL_OP.get_fix().opmode.get_ab(*(ins as *const u32))
+                                    LOADNULL_OP.get_fix().opmode.get_ab(*(ins.0 as *const u32))
                                 };
                                 let rs1 = opmodes.0;
                                 let rs2 = opmodes.1;
@@ -145,7 +185,7 @@ impl State {
                             }
                             LOADBOOL => {
                                 let (b) = unsafe {
-                                    LOADBOOL_OP.get_fix().opmode.get_a(*(ins as *const u32))
+                                    LOADBOOL_OP.get_fix().opmode.get_a(*(ins.0 as *const u32))
                                 };
                                 if b != 0x00 {
                                     self.stack()
@@ -165,7 +205,7 @@ impl State {
                         match iins {
                             JPE => {
                                 let (e, loc) = unsafe {
-                                    JPE_OP.get_fix().opmode.get_abx(*(ins as *const u32))
+                                    JPE_OP.get_fix().opmode.get_abx(*(ins.0 as *const u32))
                                 };
                                 if self.stack().get(e as isize).0 == super::PrimeValue::Bool(true) {
                                     let label = self
@@ -182,7 +222,7 @@ impl State {
                             }
                             JPN => {
                                 let (e, loc) = unsafe {
-                                    JPE_OP.get_fix().opmode.get_abx(*(ins as *const u32))
+                                    JPE_OP.get_fix().opmode.get_abx(*(ins.0 as *const u32))
                                 };
                                 if self.stack().get(e as isize).0 == super::PrimeValue::Bool(false)
                                 {
@@ -200,7 +240,7 @@ impl State {
                             }
                             JMP => {
                                 let value =
-                                    unsafe { JMP_OP.get_fix().opmode.get_ax(*(ins as *const u32)) };
+                                    unsafe { JMP_OP.get_fix().opmode.get_ax(*(ins.0 as *const u32)) };
                                 let label = self
                                     .stack()
                                     .closure
@@ -215,7 +255,7 @@ impl State {
                             UFCALL => {}
                             CALL => {
                                 let (cls, till) = unsafe {
-                                    CALL_OP.get_fix().opmode.get_ab(*(ins as *const u32))
+                                    CALL_OP.get_fix().opmode.get_ab(*(ins.0 as *const u32))
                                 };
                                 if let super::PrimeValue::Closure(ccls) =
                                     self.stack().get(cls as isize).clone().0
@@ -250,7 +290,7 @@ impl State {
                             }
                             CALLC => {
                                 let (a, b, till) = unsafe {
-                                    CALLC_OP.get_fix().opmode.get_abc(*(ins as *const u32))
+                                    CALLC_OP.get_fix().opmode.get_abc(*(ins.0 as *const u32))
                                 };
                                 if let super::Value(super::PrimeValue::NType(ty), _) =
                                     self.stack().pop()
@@ -282,7 +322,7 @@ impl State {
                             }
                             RESUME => {
                                 let thread = unsafe {
-                                    RESUME_OP.get_fix().opmode.get_a(*(ins as *const u32))
+                                    RESUME_OP.get_fix().opmode.get_a(*(ins.0 as *const u32))
                                 };
                                 // get state of that thread,pc+1,create a new state and execute
                             }
@@ -297,7 +337,7 @@ impl State {
                             EQ => {
                                 use super::super::super::bin_format::*;
                                 let (dst, src1, src2) =
-                                    unsafe { EQ_OP.get_fix().opmode.get_abc(*(ins as *const u32)) };
+                                    unsafe { EQ_OP.get_fix().opmode.get_abc(*(ins.0 as *const u32)) };
                                 let vsrc1 = self.stack().get(src1 as isize);
                                 let vsrc2 = self.stack().get(src2 as isize);
                                 let res = super::super::op::comp::eq(vsrc1, vsrc2);
@@ -306,7 +346,7 @@ impl State {
                             LE => {
                                 use super::super::super::bin_format::*;
                                 let (dst, src1, src2) =
-                                    unsafe { LE_OP.get_fix().opmode.get_abc(*(ins as *const u32)) };
+                                    unsafe { LE_OP.get_fix().opmode.get_abc(*(ins.0 as *const u32)) };
                                 let vsrc1 = self.stack().get(src1 as isize);
                                 let vsrc2 = self.stack().get(src2 as isize);
                                 let res = super::super::op::comp::le(vsrc1, vsrc2);
@@ -315,7 +355,7 @@ impl State {
                             GT => {
                                 use super::super::super::bin_format::*;
                                 let (dst, src1, src2) =
-                                    unsafe { GT_OP.get_fix().opmode.get_abc(*(ins as *const u32)) };
+                                    unsafe { GT_OP.get_fix().opmode.get_abc(*(ins.0 as *const u32)) };
                                 let vsrc1 = self.stack().get(src1 as isize);
                                 let vsrc2 = self.stack().get(src2 as isize);
                                 let res = super::super::op::comp::gt(vsrc1, vsrc2);
@@ -324,7 +364,7 @@ impl State {
                             NEQ => {
                                 use super::super::super::bin_format::*;
                                 let (dst, src1, src2) = unsafe {
-                                    NEQ_OP.get_fix().opmode.get_abc(*(ins as *const u32))
+                                    NEQ_OP.get_fix().opmode.get_abc(*(ins.0 as *const u32))
                                 };
                                 let vsrc1 = self.stack().get(src1 as isize);
                                 let vsrc2 = self.stack().get(src2 as isize);
@@ -334,7 +374,7 @@ impl State {
                             LEEQ => {
                                 use super::super::super::bin_format::*;
                                 let (dst, src1, src2) = unsafe {
-                                    LEEQ_OP.get_fix().opmode.get_abc(*(ins as *const u32))
+                                    LEEQ_OP.get_fix().opmode.get_abc(*(ins.0 as *const u32))
                                 };
                                 let vsrc1 = self.stack().get(src1 as isize);
                                 let vsrc2 = self.stack().get(src2 as isize);
@@ -344,7 +384,7 @@ impl State {
                             GTEQ => {
                                 use super::super::super::bin_format::*;
                                 let (dst, src1, src2) = unsafe {
-                                    GTEQ_OP.get_fix().opmode.get_abc(*(ins as *const u32))
+                                    GTEQ_OP.get_fix().opmode.get_abc(*(ins.0 as *const u32))
                                 };
                                 let vsrc1 = self.stack().get(src1 as isize);
                                 let vsrc2 = self.stack().get(src2 as isize);
@@ -368,7 +408,7 @@ impl State {
                             // DIVM => {}
                             NEG => {
                                 let opmodes = unsafe {
-                                    NEGM_OP.get_fix().opmode.get_ab(*(ins as *const u32))
+                                    NEGM_OP.get_fix().opmode.get_ab(*(ins.0 as *const u32))
                                 };
                                 let rs1 = opmodes.0;
                                 let rs2 = opmodes.1;
@@ -402,7 +442,7 @@ impl State {
                             ADD => {
                                 use super::super::super::bin_format::*;
                                 let (dst, src1, src2) = unsafe {
-                                    ADD_OP.get_fix().opmode.get_abc(*(ins as *const u32))
+                                    ADD_OP.get_fix().opmode.get_abc(*(ins.0 as *const u32))
                                 };
                                 let vsrc1 = self.stack().get(src1 as isize);
                                 let vsrc2 = self.stack().get(src2 as isize);
@@ -412,7 +452,7 @@ impl State {
                             SUB => {
                                 use super::super::super::bin_format::*;
                                 let (dst, src1, src2) = unsafe {
-                                    ADD_OP.get_fix().opmode.get_abc(*(ins as *const u32))
+                                    ADD_OP.get_fix().opmode.get_abc(*(ins.0 as *const u32))
                                 };
                                 let vsrc1 = self.stack().get(src1 as isize);
                                 let vsrc2 = self.stack().get(src2 as isize);
@@ -422,7 +462,7 @@ impl State {
                             MUL => {
                                 use super::super::super::bin_format::*;
                                 let (dst, src1, src2) = unsafe {
-                                    ADD_OP.get_fix().opmode.get_abc(*(ins as *const u32))
+                                    ADD_OP.get_fix().opmode.get_abc(*(ins.0 as *const u32))
                                 };
                                 let vsrc1 = self.stack().get(src1 as isize);
                                 let vsrc2 = self.stack().get(src2 as isize);
@@ -432,7 +472,7 @@ impl State {
                             MOD => {
                                 use super::super::super::bin_format::*;
                                 let (dst, src1, src2) = unsafe {
-                                    ADD_OP.get_fix().opmode.get_abc(*(ins as *const u32))
+                                    ADD_OP.get_fix().opmode.get_abc(*(ins.0 as *const u32))
                                 };
                                 let vsrc1 = self.stack().get(src1 as isize);
                                 let vsrc2 = self.stack().get(src2 as isize);
@@ -442,7 +482,7 @@ impl State {
                             DIV => {
                                 use super::super::super::bin_format::*;
                                 let (dst, src1, src2) = unsafe {
-                                    ADD_OP.get_fix().opmode.get_abc(*(ins as *const u32))
+                                    ADD_OP.get_fix().opmode.get_abc(*(ins.0 as *const u32))
                                 };
                                 let vsrc1 = self.stack().get(src1 as isize);
                                 let vsrc2 = self.stack().get(src2 as isize);
@@ -467,26 +507,28 @@ impl State {
                         match iins {
                             CLOSURE => {
                                 let idx = unsafe {
-                                    CLOSURE_OP.get_fix().opmode.get_ax(*(ins as *const u32))
+                                    CLOSURE_OP.get_fix().opmode.get_ax(*(ins.0 as *const u32))
                                 };
                                 self.load_func(idx as usize);
                             }
                             FIXTOP => {
                                 let idx = unsafe {
-                                    FIXTOP_OP.get_fix().opmode.get_a(*(ins as *const u32))
+                                    FIXTOP_OP.get_fix().opmode.get_a(*(ins.0 as *const u32))
                                 };
                                 self.stack().fix_to_top(idx as usize);
                             }
                             NEWTHREAD => {
                                 let idx = unsafe {
-                                    NEWTHREAD_OP.get_fix().opmode.get_a(*(ins as *const u32))
+                                    NEWTHREAD_OP.get_fix().opmode.get_a(*(ins.0 as *const u32))
                                 };
                                 let super::Value(c,_) = self.stack().get(idx as isize);
                                 if let super::PrimeValue::Closure(c) = c{
                                     // TODO: GC
                                     use super::super::*;
-                                    let h = Box::pin(new_thread(Stack::new_from_closure(Box::new(c))));
-                                    let v = super::Value::from(super::PrimeValue::Thread(&*h));
+                                    // TODO: new uuid
+                                    let h = Box::pin(new_thread(Stack::new_from_closure(Box::new(c)),0));
+                                    // FIXME: bug!
+                                    let v = super::Value::from(super::PrimeValue::Thread(&(h.0)));
                                     self.stack().push(v);
                                 }else{
                                     panic!("ERROR CURRENT STACK ADDRESS IS NOT CLOSURE")
@@ -500,7 +542,17 @@ impl State {
                     // else if ins < 0 && ins > 0 {
                     // }
                     // // debug
-                    // else if ins < 0 && ins > 0 {
+                    else if iins > 0xDF && iins <= 0xFF {
+                        use super::super::op::debug::*;
+                        match iins{
+                            BREAK => {
+                                println!("== BREAK AT LINE {} ==",self.pc());
+                                bk = true;
+                            },
+                            _ => unimplemented!()
+                        }
+                        break;
+                    }
                     // } else {
                     //     panic!("ERROR INSTRUCTION '0x{:02X}' NOT SUPPORTED", ins);
                     // }

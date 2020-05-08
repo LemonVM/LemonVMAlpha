@@ -67,13 +67,14 @@ async fn main() {
     // start
     // label : 0
         0x00,0x00,
-        0x01,0x00,0x00,0x00,
-        0x00,0x02,0x00,0x01,0x00,
+        0x03,0x00,0x00,0x00,
+        0x00,0xE6,0x00,0x00,0x00,
         // // 0xFF,0x01,0x05,0x00,0x05,0x01,0x00,0x00,0x00,
         // // 0xFF,0x01,0x05,0x00,0x05,0x02,0x00,0x00,0x00,
         // // 0xFF,0x01,0x05,0x00,0x13,0x01,0x00,0x00,0x00,
         // // 0x00,0x28,0x00,0x01,0x00,
-        // 0x00,0x00,0x00,0x00,0x00,
+        0x00,0x00,0x00,0x00,0x00,
+        0x00,0x00,0x00,0x00,0x00,
     // end
         0x00,0x00,0x00,0x00,
         0x00,0x00,0x00,0x00,
@@ -86,14 +87,19 @@ async fn main() {
     let mut reg = vm::ThreadsRegister{threads:vec!(),channels:vec!()};
     let mut stack= vm::executer::stack::Stack::new(Box::new(func));
     use vm::*;
-    let h = new_thread(stack);
+    let (h,s,r) = new_thread(stack,0);
     println!("===== testing Async =====");
-    let mut tr = THREAD_REGISTER.lock().unwrap();
-    //let st = unsafe{&mut(*(tr.threads[0]))};
-    // println!("before execute {:?}",st.stack().stack);
-    // push_user_data(st);
-    // mod_user_data(st);
+
     use async_std::task::*;
+    use std::time::Duration;
+    spawn(async move {
+        println!("print stack: {}",r.recv().await.unwrap());    
+    });
+    spawn(async move {
+        sleep(Duration::from_secs(1)).await;
+        s.send(vm::VMMessage::PrintFrame).await;
+        s.send(vm::VMMessage::Continue).await;
+    });
+    
     h.await;
-    //println!("after execute {:?}\n", st.stack().stack);
 }
