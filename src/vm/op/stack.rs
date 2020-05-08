@@ -3,8 +3,7 @@ use super::*;
 // CC stands for closre capture
 pub const GETCC: u8 = 0x40;
 pub const SETCC: u8 = 0x41;
-pub const GETCCSFT:u8 =0x06;
-pub const SETCCSFT:u8 =0x08;
+
 pub const GETROW: u8 = 0x42;
 pub const SETROW: u8 = 0x43;
 pub const NEWROW: u8 = 0x44;
@@ -20,6 +19,13 @@ pub const DUP1: u8 = 0x4b;
 pub const DUP2: u8 = 0x4c;
 pub const FIXTOP: u8 = 0x4d;
 
+pub const NEWTHREAD: u8 = 0x4e;
+pub const GETYIELD: u8 = 0x4f;
+pub const GETTRET: u8 = 0x50;
+
+pub const REF:u8 = 0x51;
+pub const UNREF:u8 = 0x52;
+
 pub const CLOSURE_OP: Op = Op::FIX(FixOp{op:CLOSURE,opmode:FixOpMode::AX(RP)});
 // only used before return
 // example
@@ -27,3 +33,7 @@ pub const CLOSURE_OP: Op = Op::FIX(FixOp{op:CLOSURE,opmode:FixOpMode::AX(RP)});
     // return
 // it will return address 0x00
 pub const FIXTOP_OP: Op = Op::FIX(FixOp{op:FIXTOP,opmode:FixOpMode::A(RS)});
+// A new thread needs a Closure and push a Thread type to stack top
+pub const NEWTHREAD_OP: Op = Op::FIX(FixOp {op:NEWTHREAD,opmode:FixOpMode::A(RS)});
+pub const GETYIELD_OP:Op = Op::FIX(FixOp {op:GETYIELD,opmode:FixOpMode::A(RS)});
+pub const GETTRET_OP:Op = Op::FIX(FixOp {op:GETTRET,opmode:FixOpMode::A(RS)});

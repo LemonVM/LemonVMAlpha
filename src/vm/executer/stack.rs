@@ -18,6 +18,8 @@ pub struct Stack{
     pub ir: *const u8,
     pub fixed_top : usize
 }
+unsafe impl Send for Stack{}
+unsafe impl Sync for Stack{}
 impl Stack{
     pub fn new_from_closure(closure:Box<Closure>)->Stack{
         Stack{stack:ArrayVec::new(),pc:0,ir:std::ptr::null(),closure,fixed_top:255}
