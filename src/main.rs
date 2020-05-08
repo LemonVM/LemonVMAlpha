@@ -87,13 +87,13 @@ async fn main() {
     let mut stack= vm::executer::stack::Stack::new(Box::new(func));
     use vm::*;
     let h = new_thread(stack);
-    println!("===== testing FFI =====");
+    println!("===== testing Async =====");
     let mut tr = THREAD_REGISTER.lock().unwrap();
-    let st = unsafe{&mut(*(tr.threads[0]))};
-    println!("before execute {:?}",st.stack().stack);
+    //let st = unsafe{&mut(*(tr.threads[0]))};
+    // println!("before execute {:?}",st.stack().stack);
     // push_user_data(st);
     // mod_user_data(st);
     use async_std::task::*;
     h.await;
-    println!("after execute {:?}\n", st.stack().stack);
+    //println!("after execute {:?}\n", st.stack().stack);
 }

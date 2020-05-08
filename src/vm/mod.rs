@@ -19,11 +19,13 @@ lazy_static! {
 }
 
 pub fn new_thread(stack: executer::stack::Stack) -> async_std::task::JoinHandle<()> {
-    let mut c = Box::pin(executer::state::State::new());
-    (*c).push_stack(stack);
+    // TODO: free
+    let mut state = executer::state::State::new();
+    state.push_stack(stack);
+    let mut pc = std::pin::Pin::new(&mut state);
     let mut tr = THREAD_REGISTER.lock().unwrap();
     let len = tr.threads.len().clone();
-    tr.threads.push(&mut (*c));
+    tr.threads.push(&mut (*pc));
     let cc = tr.threads[len];
     unsafe { async_std::task::spawn((&mut (*cc)).execute()) }
 }
