@@ -16,19 +16,25 @@ pub struct Stack{
     pub stack:Vec<Value>,
     pub closure:Box<Closure>,
     pub pc: usize,
-    pub ir: *const u8,
+    pub ir: IR,
     pub fixed_top : usize
 }
+#[derive(Debug)]
+pub struct IR(pub *const u8);
+unsafe impl Send for IR{}
+unsafe impl Sync for IR{}
+
 unsafe impl Send for Stack{}
 unsafe impl Sync for Stack{}
+
 impl Stack{
     pub fn new_from_closure(closure:Box<Closure>)->Stack{
         //Stack{stack:ArrayVec::new(),pc:0,ir:std::ptr::null(),closure,fixed_top:255}
-        Stack{stack:vec!(),pc:0,ir:std::ptr::null(),closure,fixed_top:255}
+        Stack{stack:vec!(),pc:0,ir:IR(std::ptr::null()),closure,fixed_top:255}
     }
     pub fn new(func:Box<super::super::super::bin_format::func_type::FuncType>)->Stack{
         // Stack{stack:ArrayVec::new(),pc:0,ir:std::ptr::null(),closure:Box::new(Closure::new(func.uuid,FuncInClosure::Func(func.clone()),func.arg_types,func.ret_types)),fixed_top:255} //FIXME:GC this will be allocated in heap
-        Stack{stack:vec!(),pc:0,ir:std::ptr::null(),closure:Box::new(Closure::new(func.uuid,FuncInClosure::Func(func.clone()),func.arg_types,func.ret_types)),fixed_top:255} //FIXME:GC this will be allocated in heap
+        Stack{stack:vec!(),pc:0,ir:IR(std::ptr::null()),closure:Box::new(Closure::new(func.uuid,FuncInClosure::Func(func.clone()),func.arg_types,func.ret_types)),fixed_top:255} //FIXME:GC this will be allocated in heap
     }
 
     pub fn top(&self) -> isize {
