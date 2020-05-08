@@ -72,7 +72,8 @@ impl State {
         if stack.check_ramain_enougth(args.len()) {
             use arrayvec::*;
             use std::iter::FromIterator;
-            stack.stack = ArrayVec::from_iter(args);
+            //stack.stack = ArrayVec::from_iter(args);
+            stack.stack = args;
         }
         self.frames.push(stack);
     }
@@ -135,10 +136,11 @@ impl State {
                                     let res = self
                                         .stack()
                                         .stack
-                                        .try_push(Value::from(super::PrimeValue::Null));
-                                    if res.is_err() {
-                                        eprintln!("well~ this is a bug, trying to fix");
-                                    }
+                                        .push(Value::from(super::PrimeValue::Null));
+                                        //.try_push(Value::from(super::PrimeValue::Null));
+                                    // if res.is_err() {
+                                    //     eprintln!("well~ this is a bug, trying to fix");
+                                    // }
                                 }
                             }
                             LOADBOOL => {
@@ -228,7 +230,8 @@ impl State {
                                 use arrayvec::*;
                                 use std::iter::FromIterator;
                                 let mut new_stack = self.stack().fixed_tops();
-                                self.stack().stack = ArrayVec::from_iter(new_stack);
+                                //self.stack().stack = ArrayVec::from_iter(new_stack);
+                                self.stack().stack = new_stack;
                                 println!(
                                     "============= TAIL CALL ===========\nstack: {:?}",
                                     self.stack()
