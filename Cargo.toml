@@ -12,3 +12,8 @@ libc = "0.2"
 arrayvec = "0.5"
 libloading = "0.6"
 libffi = "0.9.0"
+async-trait = "0.1.30"
+
+[dependencies.async-std]
+version = "1.5.0"
+features = ["unstable","attributes"]

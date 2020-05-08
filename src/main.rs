@@ -39,7 +39,9 @@ extern "C" fn mod_user_data(state:&mut vm::executer::state::State){
         panic!("is not user data");
     }
 }
-fn main() {
+use async_std::prelude::*;
+#[async_std::main]
+async fn main() {
     let constant_pool = [
         0x02,
         0x13,
@@ -61,11 +63,12 @@ fn main() {
         0x00,
         0x00,0x00,0x00,0x00,
         0x00,0x00,0x00,0x00,
-        0x00,0x00,
+        0x01,0x00,
     // start
     // label : 0
-        // 0x00,0x00,
-        // 0x01,0x00,0x00,0x00,
+        0x00,0x00,
+        0x01,0x00,0x00,0x00,
+        0x00,0x02,0x00,0x01,0x00,
         // // 0xFF,0x01,0x05,0x00,0x05,0x01,0x00,0x00,0x00,
         // // 0xFF,0x01,0x05,0x00,0x05,0x02,0x00,0x00,0x00,
         // // 0xFF,0x01,0x05,0x00,0x13,0x01,0x00,0x00,0x00,
@@ -75,21 +78,22 @@ fn main() {
         0x00,0x00,0x00,0x00,
         0x00,0x00,0x00,0x00,
     ];
-    println!("{}",constant_pool[12]);
     reader::Reader::read_constant_pool(constant_pool.as_ptr(), constant_pool.len());
-    println!("{:?}",constant_and_pool::CONSTANT_POOL.read().unwrap());
+    //println!("{:?}",constant_and_pool::CONSTANT_POOL.read().unwrap());
     let mut reader = reader::Reader::new(bytes.as_ptr());
     let func = reader.read_func();
     println!("{}",func);
-
-    let mut state = vm::executer::state::State::new();
+    let mut reg = vm::ThreadsRegister{threads:vec!(),channels:vec!()};
     let mut stack= vm::executer::stack::Stack::new(Box::new(func));
-    state.push_stack(stack);
+    use vm::*;
+    let h = new_thread(stack);
     println!("===== testing FFI =====");
-    println!("before execute {:?}",state.stack().stack);
-    push_user_data(&mut state);
-    mod_user_data(&mut state);
-    state.execute();
-    println!("after execute {:?}\n",state.stack().stack);
-
+    let mut tr = THREAD_REGISTER.lock().unwrap();
+    let st = unsafe{&mut(*(tr.threads[0]))};
+    println!("before execute {:?}",st.stack().stack);
+    // push_user_data(st);
+    // mod_user_data(st);
+    use async_std::task::*;
+    h.await;
+    println!("after execute {:?}\n", st.stack().stack);
 }

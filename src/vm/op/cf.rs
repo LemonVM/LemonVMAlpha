@@ -11,6 +11,9 @@ pub const TAILCALL: u8 = 0x23;
 pub const RET: u8 = 0x24;
 pub const RETURN: u8 = 0x25;
 
+pub const YIELD: u8 = 0x29;
+pub const RESUME: u8 = 0x30;
+
 //----------
 pub const JMP_OP: Op = Op::FIX(FixOp{op:JMP,opmode:FixOpMode::AX(VI)});
 pub const JPE_OP: Op = Op::FIX(FixOp{op:JPE,opmode:FixOpMode::ABX(RS,VI)});
@@ -27,3 +30,7 @@ pub const RETURN_OP: Op = Op::FIX(FixOp{op:RET,opmode:FixOpMode::None});
 //                                                                        path name untill
 // implicitly a type is loaded on the top of the stack to determine the return type
 pub const CALLC_OP: Op = Op::FIX(FixOp { op: CALLC, opmode: FixOpMode::ABC(RS, RS, RS) });
+
+pub const YIELD_OP:Op = Op::FIX(FixOp {op:YIELD,opmode:FixOpMode::None});
+// need a thread to resume
+pub const RESUME_OP:Op = Op::FIX(FixOp {op:YIELD,opmode:FixOpMode::A(RS)});

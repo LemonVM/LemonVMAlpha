@@ -1,7 +1,18 @@
 use super::stack::*;
-pub struct State {
+#[derive(PartialEq)]
+pub enum Status{
+    STOP = 0x00,
+    RUNNING = 0x01,
+    YIELD = 0x02,
+    ERROR = 0xFF,
+}
+pub struct State{
+    pub status: Status,
     pub frames: Vec<Stack>,
 }
+unsafe impl Send for State{}
+unsafe impl Sync for State{}
+
 impl State {
     pub fn stack(&mut self) -> &mut Stack {
         self.frames
@@ -14,8 +25,8 @@ impl State {
     pub fn pop_stack(&mut self) {
         self.frames.pop();
     }
-    pub fn new() -> State {
-        State { frames: vec![] }
+    pub fn new() -> Self {
+        State{ frames: vec![], status:Status::RUNNING}
     }
     pub fn ir(&mut self) -> &mut *const u8 {
         &mut self.stack().ir
@@ -85,8 +96,8 @@ impl State {
         }
         res.iter().for_each(|r| self.stack().push(r.clone()))
     }
-    pub fn execute(&mut self) {
-        loop {
+    pub async fn execute(&mut self) {
+        while self.status == Status::RUNNING {
             if let Some(ins) = self.fetch() {
                 let mut iins = unsafe { *ins as u8 };
                 println!("IR: 0x{:02x}", iins);
@@ -262,6 +273,15 @@ impl State {
                                 } else {
                                     panic!("ERROR! IS NOT TYPE")
                                 }
+                            }
+                            YIELD => {
+                                self.status = Status::YIELD;
+                            }
+                            RESUME => {
+                                let thread = unsafe {
+                                    RESUME_OP.get_fix().opmode.get_a(*(ins as *const u32))
+                                };
+                                // get state of that thread,pc+1,create a new state and execute
                             }
                             _ => unimplemented!(),
                         }
@@ -453,6 +473,21 @@ impl State {
                                     FIXTOP_OP.get_fix().opmode.get_a(*(ins as *const u32))
                                 };
                                 self.stack().fix_to_top(idx as usize);
+                            }
+                            NEWTHREAD => {
+                                let idx = unsafe {
+                                    NEWTHREAD_OP.get_fix().opmode.get_a(*(ins as *const u32))
+                                };
+                                let super::Value(c,_) = self.stack().get(idx as isize);
+                                if let super::PrimeValue::Closure(c) = c{
+                                    // TODO: GC
+                                    use super::super::*;
+                                    let h = Box::pin(new_thread(Stack::new_from_closure(Box::new(c))));
+                                    let v = super::Value::from(super::PrimeValue::Thread(&*h));
+                                    self.stack().push(v);
+                                }else{
+                                    panic!("ERROR CURRENT STACK ADDRESS IS NOT CLOSURE")
+                                }
                             }
                             _ => unimplemented!(),
                         }
