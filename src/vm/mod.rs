@@ -7,7 +7,7 @@ use std::sync::Mutex;
 use async_std::sync::*;
 
 pub struct ThreadsRegister {
-    pub threads: Vec<(u32,async_std::task::JoinHandle<Vec<executer::Value>>,Sender<VMMessage>,Receiver<String>)>,
+    pub threads: Vec<(u32,async_std::task::JoinHandle<(Vec<executer::Value>,Option<executer::stack::Stack>)>,Sender<VMMessage>,Receiver<String>)>,
     pub channels: Vec<Mutex<Channel>>,
 }
 unsafe impl Send for ThreadsRegister {}
@@ -27,7 +27,7 @@ pub enum VMMessage{
     Break = 0x03,
 }
 
-pub fn new_thread(stack: executer::stack::Stack) -> (u32,Sender<VMMessage>,Receiver<String>) {
+pub fn new_thread(stack: executer::stack::Stack) -> u32 {
     // TODO: free
     use async_std::sync::channel;
     let uuid = executer::gen_uuid();
@@ -38,15 +38,25 @@ pub fn new_thread(stack: executer::stack::Stack) -> (u32,Sender<VMMessage>,Recei
     let mut pc = std::pin::Pin::new(&mut state);
     let mut tr = THREAD_REGISTER.lock().unwrap();
     tr.threads.push((uuid,async_std::task::spawn(state.execute()),message_chan_send.clone(),string_chan_recv.clone()));
-    (uuid,message_chan_send,string_chan_recv)
+    uuid
 }
 
-pub fn get_join_handle(uuid:u32)->async_std::task::JoinHandle<Vec<executer::Value>>{
+pub fn get_join_handle(uuid:u32)->async_std::task::JoinHandle<(Vec<executer::Value>,Option<executer::stack::Stack>)>{
     let mut a = THREAD_REGISTER.lock().unwrap();
     for t in 0..a.threads.len(){
         if a.threads[t].0 == uuid{
             let r = a.threads.remove(t);
             return r.1;
+        }
+    }
+    panic!("NO THREAD WITH UUID {}",uuid)
+}
+
+pub fn get_sender_receiver(uuid:u32)->(Sender<VMMessage>, Receiver<String>){
+    let mut a = THREAD_REGISTER.lock().unwrap();
+    for t in 0..a.threads.len(){
+        if a.threads[t].0 == uuid{
+            return (a.threads[t].2.clone(),a.threads[t].3.clone());
         }
     }
     panic!("NO THREAD WITH UUID {}",uuid)
