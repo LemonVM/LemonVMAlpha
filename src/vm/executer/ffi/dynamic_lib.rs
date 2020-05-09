@@ -45,7 +45,7 @@ pub fn pass_args_to_NFunc_and_call(
                 Char(a) => a as *mut u16 as *mut libc::c_void,
                 Int(a) => a as *mut u32 as *mut libc::c_void,
                 Num(a) => a as *mut f64 as *mut libc::c_void,
-                UserData(a) => *a as *mut libc::c_void,
+                UserData(a) => unsafe{*a.0 as *mut libc::c_void},
                 _ => unimplemented!(),
             }
         })

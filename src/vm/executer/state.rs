@@ -40,6 +40,9 @@ impl State {
         &mut self.stack().pc
     }
     pub fn fetch(&mut self) -> Option<IR> {
+        if self.frames.len() == 0{
+            return None;
+        }
         let pc = self.pc().clone();
         let current_label = self.stack().closure.current_label_number;
         if let Some(instr) = self
@@ -93,16 +96,20 @@ impl State {
         // self.stack().pc = 0
     }
     // move return value to current stack top
-    pub fn return_(&mut self) {
-        let res = self.stack().fixed_tops();
+    pub fn return_(&mut self)->Vec<super::Value> {
+        let mut res = self.stack().fixed_tops();
         // pop function call
-        self.frames.pop();
+        let f = self.frames.pop().unwrap();
+        if self.frames.len() == 0{
+            return res;
+        }
         if !self.stack().check_ramain_enougth(res.len()) {
             panic!("ERROR! STACK OVERFLOWED")
         }
-        res.iter().for_each(|r| self.stack().push(r.clone()))
+        self.stack().stack.append(&mut res);
+        res
     }
-    pub async fn execute(mut self) {
+    pub async fn execute(mut self)->Vec<super::Value> {
         let mut bk = false;
         while self.status == Status::RUNNING {
             use async_std::sync::*;
@@ -282,11 +289,14 @@ impl State {
                             RET => {
                                 self.frames.pop();
                                 if self.frames.len() == 0 {
-                                    return;
+                                    break;
                                 }
                             }
                             RETURN => {
-                                self.return_();
+                                let res = self.return_();
+                                if self.frames.len() == 0{
+                                    return res;
+                                }
                             }
                             CALLC => {
                                 let (a, b, till) = unsafe {
@@ -526,14 +536,26 @@ impl State {
                                     // TODO: GC
                                     use super::super::*;
                                     // TODO: new uuid
-                                    let h = Box::pin(new_thread(Stack::new_from_closure(Box::new(c)),0));
+                                    let (h,s,r) = new_thread(Stack::new_from_closure(Box::new(c)));
                                     // FIXME: bug!
-                                    let v = super::Value::from(super::PrimeValue::Thread(&(h.0)));
+                                    let v = super::Value::from(super::PrimeValue::Thread(h));
                                     self.stack().push(v);
                                 }else{
                                     panic!("ERROR CURRENT STACK ADDRESS IS NOT CLOSURE")
                                 }
-                            }
+                            },
+                            GETTRET => {
+                                // println!("{:?}",self.stack());
+                                let idx = unsafe {
+                                    GETTRET_OP.get_fix().opmode.get_a(*(ins.0 as *const u32))
+                                };
+                                let super::Value(c,_) = self.stack().get(idx as isize);
+                                if let super::PrimeValue::Thread(t) = &c {
+                                    let mut res = super::super::get_join_handle(*t).await;
+                                    self.stack().stack.append(&mut res);
+                                }
+                                // TODO: get stack return value
+                            },
                             _ => unimplemented!(),
                         }
                         break;
@@ -558,8 +580,9 @@ impl State {
                     // }
                 }
             } else {
-                return;
+                return self.stack().fixed_tops();
             }
         }
+        return self.stack().fixed_tops();
     }
 }
