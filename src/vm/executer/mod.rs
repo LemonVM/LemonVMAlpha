@@ -4,6 +4,14 @@ pub mod state;
 // mod test;
 use super::super::bin_format::*;
 
+pub fn gen_uuid()->u32{
+    use std::time::*;
+    match SystemTime::now().duration_since(UNIX_EPOCH) {
+        Ok(n) => n.as_secs() as u32,
+        Err(_) => panic!("SystemTime before UNIX EPOCH!"),
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Value(pub PrimeValue, pub Type);
 unsafe impl Send for Value {}
@@ -41,14 +49,22 @@ pub enum PrimeValue {
     SIMDInt(VMInt, VMInt, VMInt, VMInt),
     SIMDNum(VMNum, VMNum, VMNum, VMNum),
     SIMDChar(VMChar, VMChar, VMChar, VMChar),
-    UserData(*mut u8), //TODO:完成这玩意儿
+    UserData(CUserData), //TODO:完成这玩意儿
     Row(Row),
     Closure(Closure), //TODO: 完成这玩意儿
     NType(Type),      // V just for naming issue, so this is only used in reflection!
 
-    Thread(*const async_std::task::JoinHandle<()>), //TODO: 完成这玩意儿
+    Thread(u32), //TODO: 完成这玩意儿
     Channel(CSender, CReceiver),
 }
+unsafe impl Send for PrimeValue {}
+unsafe impl Sync for PrimeValue {}
+
+#[derive(Debug, Clone,PartialEq)]
+pub struct CUserData(pub *mut u8);
+unsafe impl Send for CUserData{}
+unsafe impl Sync for CUserData{}
+
 #[derive(Debug, Clone)]
 pub struct CSender(u32, pub Sender<Value>);
 #[derive(Debug, Clone)]
@@ -78,11 +94,11 @@ impl std::fmt::Debug for Closure {
 }
 impl Closure {
     pub fn new(
-        uuid: u32,
         func: FuncInClosure,
         arg_types: Vec<Type>,
         ret_types: Vec<Type>,
     ) -> Closure {
+        let uuid = gen_uuid();
         Closure {
             uuid,
             is_native_func: false,
@@ -143,7 +159,6 @@ impl From<super::super::bin_format::constant_and_pool::Constant> for PrimeValue 
             }
             super::super::bin_format::constant_and_pool::Constant::Func(p) => {
                 Self::Closure(Closure::new(
-                    p.uuid,
                     FuncInClosure::Func(Box::new(p.clone())),
                     p.arg_types,
                     p.ret_types,
@@ -199,6 +214,7 @@ impl From<PrimeValue> for Type {
             } //TODO: 完成这玩意儿
             //Thread(),//TODO: 完成这玩意儿 和 Channel
             NType(t) => Self::Kind,
+            Thread(u32) => Self::Kind,
             _ => unimplemented!(),
         }
     }
