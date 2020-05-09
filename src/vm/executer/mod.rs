@@ -54,9 +54,10 @@ pub enum PrimeValue {
     Closure(Closure), //TODO: 完成这玩意儿
     NType(Type),      // V just for naming issue, so this is only used in reflection!
 
-    Thread(u32), //TODO: 完成这玩意儿
+    Thread(u32,Option<stack::Stack>), //TODO: 完成这玩意儿
     Channel(CSender, CReceiver),
 }
+
 unsafe impl Send for PrimeValue {}
 unsafe impl Sync for PrimeValue {}
 
@@ -214,7 +215,7 @@ impl From<PrimeValue> for Type {
             } //TODO: 完成这玩意儿
             //Thread(),//TODO: 完成这玩意儿 和 Channel
             NType(t) => Self::Kind,
-            Thread(u32) => Self::Kind,
+            Thread(_,_) => Self::Kind,
             _ => unimplemented!(),
         }
     }

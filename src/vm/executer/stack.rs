@@ -10,7 +10,7 @@ use arrayvec::*;
 // well ignore me i wont write asm by my self would I?
 // but we only use u8 for index ~ so ~
 
-#[derive(Debug)]
+#[derive(Debug,Clone,PartialEq)]
 pub struct Stack{
     // pub stack:ArrayVec<[Value;256]>,
     pub stack:Vec<Value>,
@@ -19,7 +19,7 @@ pub struct Stack{
     pub ir: IR,
     pub fixed_top : usize
 }
-#[derive(Debug)]
+#[derive(Debug,Clone,PartialEq)]
 pub struct IR(pub *const u8);
 unsafe impl Send for IR{}
 unsafe impl Sync for IR{}

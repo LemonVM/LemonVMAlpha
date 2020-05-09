@@ -109,7 +109,7 @@ impl State {
         self.stack().stack.append(&mut res);
         res
     }
-    pub async fn execute(mut self)->Vec<super::Value> {
+    pub async fn execute(mut self)->(Vec<super::Value>,Option<Stack>) {
         let mut bk = false;
         while self.status == Status::RUNNING {
             use async_std::sync::*;
@@ -295,7 +295,7 @@ impl State {
                             RETURN => {
                                 let res = self.return_();
                                 if self.frames.len() == 0{
-                                    return res;
+                                    return (res,None);
                                 }
                             }
                             CALLC => {
@@ -331,9 +331,17 @@ impl State {
                                 self.status = Status::YIELD;
                             }
                             RESUME => {
-                                let thread = unsafe {
+                                let idx = unsafe {
                                     RESUME_OP.get_fix().opmode.get_a(*(ins.0 as *const u32))
                                 };
+                                let super::Value(c,_) = &mut self.stack().get(idx as isize);
+                                if let super::PrimeValue::Thread(t,stack) = &c {
+                                    if let Some(stack) = stack{
+                                        println!("resumed with stack:\n  {:?}",stack);
+                                        let h = super::super::new_thread(stack.clone());
+                                        self.stack().set(idx as isize, super::Value::from(super::PrimeValue::Thread(h,Some(stack.clone()))));
+                                    }
+                                }
                                 // get state of that thread,pc+1,create a new state and execute
                             }
                             _ => unimplemented!(),
@@ -536,9 +544,9 @@ impl State {
                                     // TODO: GC
                                     use super::super::*;
                                     // TODO: new uuid
-                                    let (h,s,r) = new_thread(Stack::new_from_closure(Box::new(c)));
+                                    let h = new_thread(Stack::new_from_closure(Box::new(c)));
                                     // FIXME: bug!
-                                    let v = super::Value::from(super::PrimeValue::Thread(h));
+                                    let v = super::Value::from(super::PrimeValue::Thread(h,None));
                                     self.stack().push(v);
                                 }else{
                                     panic!("ERROR CURRENT STACK ADDRESS IS NOT CLOSURE")
@@ -550,12 +558,25 @@ impl State {
                                     GETTRET_OP.get_fix().opmode.get_a(*(ins.0 as *const u32))
                                 };
                                 let super::Value(c,_) = self.stack().get(idx as isize);
-                                if let super::PrimeValue::Thread(t) = &c {
+                                if let super::PrimeValue::Thread(t,_) = &c {
                                     let mut res = super::super::get_join_handle(*t).await;
-                                    self.stack().stack.append(&mut res);
+                                    self.stack().stack.append(&mut res.0);
                                 }
                                 // TODO: get stack return value
                             },
+
+                            GETYIELD => {
+                                let idx = unsafe {
+                                    GETTRET_OP.get_fix().opmode.get_a(*(ins.0 as *const u32))
+                                };
+                                let super::Value(c,_) = self.stack().get(idx as isize);
+                                if let super::PrimeValue::Thread(t,_) = &c {
+                                    let (mut res,stack) = super::super::get_join_handle(*t).await;
+                                    println!("yielded thread with stack:\n  {:?}",stack);
+                                    self.stack().stack.append(&mut res);
+                                    self.stack().set(idx as isize, super::Value::from(super::PrimeValue::Thread(*t,stack.clone())));
+                                }
+                            }
                             _ => unimplemented!(),
                         }
                         break;
@@ -580,9 +601,12 @@ impl State {
                     // }
                 }
             } else {
-                return self.stack().fixed_tops();
+                return (self.stack().fixed_tops(),None);
             }
         }
-        return self.stack().fixed_tops();
+
+        // yield
+        let stack: Stack = self.frames.last().unwrap().clone();
+        return (self.stack().fixed_tops(),Some(stack));
     }
 }
