@@ -1,10 +1,10 @@
-#[test]
-fn TestNeg() {
+#[async_std::test]
+async fn TestNeg() {
     let constant_pool = [
         0x01,
         0x04,0x01,0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x4a,0xd8,0x12,0x4d,0xfb,0x21,0x09,0x40
     ];
-    let bytes = [
+    let bytes = [   
         0x03, 0x00, 0x00, 0x00, 
         0x6a, 0x00, 0x6d,0x00,0x70,0x00,
         0x00,0x00,0x00,0x00,
@@ -14,33 +14,32 @@ fn TestNeg() {
         0x00,0x00,0x00,0x00,
         0x00,0x00,0x00,0x00,
         0x01,0x00,
-    // start
-    // label : 0
+        // start
+        // label : 0
         0x00,0x00,
-        0x02,0x00,0x00,0x00,
+        0x04,0x00,0x00,0x00,
         0xFF,0x01,0x05,0x00,0x04,0x01,0x00,0x00,0x00,
         0x00,0x68,0x00,0x00,0x00,
-    // end
+        0x00,0x4d,0x00,0x00,0x00,
+        // end
         0x00,0x00,0x00,0x00,
         0x00,0x00,0x00,0x00,
     ];
     super::super::super::super::reader::Reader::read_constant_pool(constant_pool.as_ptr(), constant_pool.len());
+    //println!("{:?}",constant_and_pool::CONSTANT_POOL.read().unwrap());
     let mut reader = super::super::super::super::reader::Reader::new(bytes.as_ptr());
     let func = reader.read_func();
     println!("{}",func);
-
-    let mut state = super::super::super::super::vm::executer::state::State::new();
-    let mut stack= super::super::super::super::vm::executer::stack::Stack::new(Box::new(func));
-    state.push_stack(stack);
-    println!("===== testing neg =====");
-    println!("before execute {:?}",state.stack().stack);
-    state.execute();
-    println!("after execute {:?}\n",state.stack().stack);
-    use super::super::super::super::bin_format::*;
-    assert_eq!(*(state.stack().stack.last().unwrap()),super::super::Value(super::super::PrimeValue::Num(-3.1415926),super::super::super::super::bin_format::Type::Mono(TAG_NUM)))
+    let stack= super::super::super::super::vm::executer::stack::Stack::new(Box::new(func));
+    use super::super::super::super::vm::*;
+    let h = new_thread(stack);
+    let (s,r) = get_sender_receiver(h);
+    println!("===== testing Neg =====");
+    let (v,_) = get_join_handle(h).await;
+    assert_eq!(v[0],super::super::Value(super::super::PrimeValue::Num(-3.1415926),super::super::super::super::bin_format::Type::Mono(0x04)))
 }
-#[test]
-fn TestAdd() {
+#[async_std::test]
+async fn TestAdd() {
     let constant_pool = [
         0x01,
         0x03,
@@ -59,218 +58,30 @@ fn TestAdd() {
         0x00,0x00,0x00,0x00,
         
         0x01,0x00,
-    // start
-    // label : 0
+        // start
+        // label : 0
         0x00,0x00,
-        0x04,0x00,0x00,0x00,
+        0x05,0x00,0x00,0x00,
         0xFF,0x01,0x05,0x00,0x03,0x01,0x00,0x00,0x00,
         0xFF,0x01,0x05,0x00,0x03,0x02,0x00,0x00,0x00,
         0x00,0x02,0x02,0x03,0x00,
         0x00,0x69,0x02,0x00,0x01,
-    // end
+        0x00,0x4d,0x02,0x00,0x00,
+        // end
         0x00,0x00,0x00,0x00,
         0x00,0x00,0x00,0x00,
     ];
-    reader::Reader::read_constant_pool(constant_pool.as_ptr(), constant_pool.len());
-    let mut reader = reader::Reader::new(bytes.as_ptr());
+    super::super::super::super::reader::Reader::read_constant_pool(constant_pool.as_ptr(), constant_pool.len());
+    //println!("{:?}",constant_and_pool::CONSTANT_POOL.read().unwrap());
+    let mut reader = super::super::super::super::reader::Reader::new(bytes.as_ptr());
     let func = reader.read_func();
     println!("{}",func);
-
-    let mut state = super::super::state::State::new();
-    let mut stack= super::super::stack::Stack::new(Box::new(func));
-    state.push_stack(stack);
-    println!("===== testing add =====");
-    println!("before execute {:?}",state.stack().stack);
-    state.execute();
-    println!("after execute {:?}\n",state.stack().stack);
-    use super::super::super::super::bin_format::*;
-    assert_eq!(*(state.stack().stack.last().unwrap()),super::super::Value(super::super::PrimeValue::Int(2),super::super::super::super::bin_format::Type::Mono(TAG_INT)))
-}
-#[test]
-fn TestSub() {
-    let constant_pool = [
-        0x01,
-        0x03,
-        0x02,0x00,0x00,0x00,
-        0x01,0x00,0x00,0x00,0x01,0x00,0x00,0x00,
-        0x02,0x00,0x00,0x00,0x01,0x00,0x00,0x00
-    ];
-    let bytes = [
-        0x03, 0x00, 0x00, 0x00, 
-        0x6a, 0x00, 0x6d,0x00,0x70,0x00,
-        0x00,0x00,0x00,0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,0x00,0x00,0x00,
-        0x00,0x00,0x00,0x00,
-        
-        0x01,0x00,
-    // start
-    // label : 0
-        0x00,0x00,
-        0x04,0x00,0x00,0x00,
-        0xFF,0x01,0x05,0x00,0x03,0x01,0x00,0x00,0x00,
-        0xFF,0x01,0x05,0x00,0x03,0x02,0x00,0x00,0x00,
-        0x00,0x02,0x02,0x03,0x00,
-        0x00,0x6a,0x02,0x00,0x01,
-    // end
-        0x00,0x00,0x00,0x00,
-        0x00,0x00,0x00,0x00,
-    ];
-    reader::Reader::read_constant_pool(constant_pool.as_ptr(), constant_pool.len());
-    let mut reader = reader::Reader::new(bytes.as_ptr());
-    let func = reader.read_func();
-    println!("{}",func);
-
-    let mut state = super::super::state::State::new();
-    let mut stack= super::super::stack::Stack::new(Box::new(func));
-    state.push_stack(stack);
-    println!("===== testing sub =====");
-    println!("before execute {:?}",state.stack().stack);
-    state.execute();
-    println!("after execute {:?}\n",state.stack().stack);
-    use super::super::super::super::bin_format::*;
-    assert_eq!(*(state.stack().stack.last().unwrap()),super::super::Value(super::super::PrimeValue::Int(0),super::super::super::super::bin_format::Type::Mono(TAG_INT)))
-}
-#[test]
-fn TestMul() {
-    let constant_pool = [
-        0x01,
-        0x03,
-        0x02,0x00,0x00,0x00,
-        0x01,0x00,0x00,0x00,0x02,0x00,0x00,0x00,
-        0x02,0x00,0x00,0x00,0x03,0x00,0x00,0x00
-    ];
-    let bytes = [
-        0x03, 0x00, 0x00, 0x00, 
-        0x6a, 0x00, 0x6d,0x00,0x70,0x00,
-        0x00,0x00,0x00,0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,0x00,0x00,0x00,
-        0x00,0x00,0x00,0x00,
-        
-        0x01,0x00,
-    // start
-    // label : 0
-        0x00,0x00,
-        0x04,0x00,0x00,0x00,
-        0xFF,0x01,0x05,0x00,0x03,0x01,0x00,0x00,0x00,
-        0xFF,0x01,0x05,0x00,0x03,0x02,0x00,0x00,0x00,
-        0x00,0x02,0x02,0x03,0x00,
-        0x00,0x6b,0x02,0x00,0x01,
-    // end
-        0x00,0x00,0x00,0x00,
-        0x00,0x00,0x00,0x00,
-    ];
-    reader::Reader::read_constant_pool(constant_pool.as_ptr(), constant_pool.len());
-    let mut reader = reader::Reader::new(bytes.as_ptr());
-    let func = reader.read_func();
-    println!("{}",func);
-
-    let mut state = super::super::state::State::new();
-    let mut stack= super::super::stack::Stack::new(Box::new(func));
-    state.push_stack(stack);
-    println!("===== testing mul =====");
-    println!("before execute {:?}",state.stack().stack);
-    state.execute();
-    println!("after execute {:?}\n",state.stack().stack);
-    use super::super::super::super::bin_format::*;
-    assert_eq!(*(state.stack().stack.last().unwrap()),super::super::Value(super::super::PrimeValue::Int(6),super::super::super::super::bin_format::Type::Mono(TAG_INT)))
-}
-#[test]
-fn TestDiv() {
-    let div_constant_pool = [
-        0x01,
-        0x03,
-        0x02,0x00,0x00,0x00,
-        0x01,0x00,0x00,0x00,0x06,0x00,0x00,0x00,
-        0x02,0x00,0x00,0x00,0x03,0x00,0x00,0x00
-    ];
-    let bytes = [
-        0x03, 0x00, 0x00, 0x00, 
-        0x6a, 0x00, 0x6d,0x00,0x70,0x00,
-        0x00,0x00,0x00,0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,0x00,0x00,0x00,
-        0x00,0x00,0x00,0x00,
-        
-        0x01,0x00,
-    // start
-    // label : 0
-        0x00,0x00,
-        0x04,0x00,0x00,0x00,
-        0xFF,0x01,0x05,0x00,0x03,0x01,0x00,0x00,0x00,
-        0xFF,0x01,0x05,0x00,0x03,0x02,0x00,0x00,0x00,
-        0x00,0x02,0x02,0x03,0x00,
-        0x00,0x6e,0x02,0x00,0x01,
-    // end
-        0x00,0x00,0x00,0x00,
-        0x00,0x00,0x00,0x00,
-    ];
-    reader::Reader::read_constant_pool(div_constant_pool.as_ptr(), div_constant_pool.len());
-    let mut reader = reader::Reader::new(bytes.as_ptr());
-    let func = reader.read_func();
-    println!("{}",func);
-
-    let mut state = super::super::state::State::new();
-    let mut stack= super::super::stack::Stack::new(Box::new(func));
-    state.push_stack(stack);
-    println!("===== testing div =====");
-    println!("before execute {:?}",state.stack().stack);
-    state.execute();
-    println!("after execute {:?}\n",state.stack().stack);
-    use super::super::super::super::bin_format::*;
-    assert_eq!(*(state.stack().stack.last().unwrap()),super::super::Value(super::super::PrimeValue::Int(2),super::super::super::super::bin_format::Type::Mono(TAG_INT)))
-}
-#[test]
-fn TestMod() {
-    let constant_pool = [
-        0x01,
-        0x03,
-        0x02,0x00,0x00,0x00,
-        0x01,0x00,0x00,0x00,0x07,0x00,0x00,0x00,
-        0x02,0x00,0x00,0x00,0x05,0x00,0x00,0x00
-    ];
-    let bytes = [
-        0x03, 0x00, 0x00, 0x00, 
-        0x6a, 0x00, 0x6d,0x00,0x70,0x00,
-        0x00,0x00,0x00,0x00,
-        0x00,
-        0x00,
-        0x00,
-        0x00,0x00,0x00,0x00,
-        0x00,0x00,0x00,0x00,
-        
-        0x01,0x00,
-    // start
-    // label : 0
-        0x00,0x00,
-        0x04,0x00,0x00,0x00,
-        0xFF,0x01,0x05,0x00,0x03,0x01,0x00,0x00,0x00,
-        0xFF,0x01,0x05,0x00,0x03,0x02,0x00,0x00,0x00,
-        0x00,0x02,0x02,0x03,0x00,
-        0x00,0x6c,0x02,0x00,0x01,
-    // end
-        0x00,0x00,0x00,0x00,
-        0x00,0x00,0x00,0x00,
-    ];
-    reader::Reader::read_constant_pool(constant_pool.as_ptr(), constant_pool.len());
-    let mut reader = reader::Reader::new(bytes.as_ptr());
-    let func = reader.read_func();
-    println!("{}",func);
-
-    let mut state = super::super::state::State::new();
-    let mut stack= super::super::stack::Stack::new(Box::new(func));
-    state.push_stack(stack);
-    println!("===== testing mod =====");
-    println!("before execute {:?}",state.stack().stack);
-    state.execute();
-    println!("after execute {:?}\n",state.stack().stack);
-    use super::super::super::super::bin_format::*;
-    assert_eq!(*(state.stack().stack.last().unwrap()),super::super::Value(super::super::PrimeValue::Int(2),super::super::super::super::bin_format::Type::Mono(TAG_INT)))
+    let stack= super::super::super::super::vm::executer::stack::Stack::new(Box::new(func));
+    use super::super::super::super::vm::*;
+    let h = new_thread(stack);
+    let (s,r) = get_sender_receiver(h);
+    println!("===== testing Add =====");
+    let (v,_) = get_join_handle(h).await;
+    //assert_eq!(v[0],super::super::Value(super::super::PrimeValue::Num(-3.1415926),super::super::super::super::bin_format::Type::Mono(0x04)))
+    assert_eq!(v[0],super::super::Value(super::super::PrimeValue::Int(2),super::super::super::super::bin_format::Type::Mono(0x03)))
 }

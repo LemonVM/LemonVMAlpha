@@ -85,7 +85,7 @@ async fn main() {
     let mut reader = reader::Reader::new(bytes.as_ptr());
     let func = reader.read_func();
     println!("{}",func);
-    let mut stack= vm::executer::stack::Stack::new(Box::new(func));
+    let stack= vm::executer::stack::Stack::new(Box::new(func));
     use vm::*;
     let h = new_thread(stack);
     let (s,r) = get_sender_receiver(h);
