@@ -102,7 +102,6 @@ impl Header {
         status
     }
 }
-use arrayvec::*;
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Type {
     Kind, // 0x00
