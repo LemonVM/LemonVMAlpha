@@ -1,22 +1,22 @@
 use super::stack::*;
 #[derive(PartialEq)]
-pub enum Status{
+pub enum Status {
     STOP = 0x00,
     RUNNING = 0x01,
     YIELD = 0x02,
     ERROR = 0xFF,
 }
+use super::super::VMMessage;
 use super::stack::IR;
 use async_std::sync::*;
-use super::super::VMMessage;
-pub struct State{
-    pub uuid : u32,
+pub struct State {
+    pub uuid: u32,
     pub status: Status,
     pub frames: Vec<Stack>,
-    pub sr: (Sender<String>,Receiver<VMMessage>)
+    pub sr: (Sender<String>, Receiver<VMMessage>),
 }
-unsafe impl Send for State{}
-unsafe impl Sync for State{}
+unsafe impl Send for State {}
+unsafe impl Sync for State {}
 
 impl State {
     pub fn stack(&mut self) -> &mut Stack {
@@ -30,8 +30,13 @@ impl State {
     pub fn pop_stack(&mut self) {
         self.frames.pop();
     }
-    pub fn new(uuid:u32,sender:Sender<String>,receiver:Receiver<VMMessage>) -> Self {
-        State{ uuid,frames: vec![], status:Status::RUNNING,sr:(sender,receiver)}
+    pub fn new(uuid: u32, sender: Sender<String>, receiver: Receiver<VMMessage>) -> Self {
+        State {
+            uuid,
+            frames: vec![],
+            status: Status::RUNNING,
+            sr: (sender, receiver),
+        }
     }
     pub fn ir(&mut self) -> &mut *const u8 {
         &mut self.stack().ir.0
@@ -40,7 +45,7 @@ impl State {
         &mut self.stack().pc
     }
     pub fn fetch(&mut self) -> Option<IR> {
-        if self.frames.len() == 0{
+        if self.frames.len() == 0 {
             return None;
         }
         let pc = self.pc().clone();
@@ -64,92 +69,72 @@ impl State {
             self.fetch()
         }
     }
-    pub fn load_func(&mut self, idx: usize) {
-        let func = Box::new(self.stack().closure.func().const_func_refs[idx].clone());
-        self.stack()
-            .push(super::Value::from(super::PrimeValue::from(
-                super::super::super::bin_format::constant_and_pool::get_constant(func.0, func.1),
-            )));
-    }
-    pub fn push_function_frame_and_args(
-        &mut self,
-        closure: Box<super::Closure>,
-        args: Vec<super::Value>,
-    ) {
-        let mut stack = Stack::new_from_closure(closure);
-        if stack.check_ramain_enougth(args.len()) {
-            use arrayvec::*;
-            use std::iter::FromIterator;
-            //stack.stack = ArrayVec::from_iter(args);
-            stack.stack = args;
-        }
-        self.frames.push(stack);
-    }
     // args is how deep on stack top will copy as argument
-    pub fn call(&mut self, f: Box<super::Closure>, args: u8) {
-        let top = self.stack().top();
-        let mut v = vec![];
-        for i in 0..args {
-            v.push(self.stack().pop())
-        }
-        self.push_function_frame_and_args(f, v);
-        // self.stack().pc = 0
-    }
+    // pub fn call(&mut self, f: Box<super::Closure>, args: u8) {
+    //     let top = self.stack().top();
+    //     let mut v = vec![];
+    //     for i in 0..args {
+    //         v.push(self.stack().pop())
+    //     }
+    //     let mut stack = Stack::new_from_closure(f);
+    //     stack.stack = v;
+    //     self.frames.push(stack);
+    //     // self.stack().pc = 0
+    // }
     // move return value to current stack top
-    pub fn return_(&mut self)->Vec<super::Value> {
-        let mut res = self.stack().fixed_tops();
-        // pop function call
-        let f = self.frames.pop().unwrap();
-        if self.frames.len() == 0{
-            return res;
-        }
-        if !self.stack().check_ramain_enougth(res.len()) {
-            panic!("ERROR! STACK OVERFLOWED")
-        }
-        self.stack().stack.append(&mut res);
-        res
-    }
-    pub async fn execute(mut self)->(Vec<super::Value>,Option<Stack>) {
+    // pub fn return_(&mut self)->Vec<super::Value> {
+
+    //     let mut res = self.stack().fixed_tops();
+    //     // pop function call
+    //     let f = self.frames.pop().unwrap();
+    //     if self.frames.len() == 0{
+    //         return res;
+    //     }
+    //     if !self.stack().check_ramain_enougth(res.len()) {
+    //         panic!("ERROR! STACK OVERFLOWED")
+    //     }
+    //     self.stack().stack.append(&mut res);
+    //     res
+    // }
+    pub async fn execute(mut self) -> (Vec<super::Value>, Option<Stack>) {
         let mut bk = false;
         while self.status == Status::RUNNING {
-            use async_std::sync::*;
             if let Some(ins) = self.fetch() {
-                let mut iins = unsafe { *ins.0 as u8 };
+                let iins = unsafe { *ins.0 as u8 };
                 println!("IR: 0x{:02x}", iins);
                 loop {
-                    loop{
-                        if self.sr.1.is_empty(){
-                            if bk{
+                    loop {
+                        if self.sr.1.is_empty() {
+                            if bk {
                                 continue;
-                            }else{
+                            } else {
                                 break;
                             }
                         }
                         let m = self.sr.1.recv().await;
-                        if let Some(m) = m{
+                        if let Some(m) = m {
                             use super::super::VMMessage::*;
-                            match m{
+                            match m {
                                 PrintFrame => {
-                                    self.sr.0.send(format!("{:?}",self.frames)).await;
-                                },
+                                    self.sr.0.send(format!("{:?}", self.frames)).await;
+                                }
                                 PrintStack => {
-                                    self.sr.0.send(format!("{:?}",self.frames.last())).await;
-                                },
+                                    self.sr.0.send(format!("{:?}", self.frames.last())).await;
+                                }
                                 Break => {
                                     bk = true;
-                                },
+                                }
                                 Continue => {
                                     bk = false;
                                 }
                             }
                         }
-                        if bk{
+                        if bk {
                             continue;
-                        }else{
+                        } else {
                             break;
                         }
                     }
-
 
                     // vm
                     if iins == 0x00 {
@@ -163,9 +148,6 @@ impl State {
                         use super::Value;
                         match iins {
                             LOADK => {
-                                let offset = LOADK_OP.get_var().offset;
-                                let len = LOADK_OP.get_var().len;
-                                let total_len = offset + len;
                                 let tag = unsafe { *(ins.0.add(3)) };
                                 let uuid = unsafe { *(ins.0.add(3 + 1)) as u32 };
                                 use super::super::super::bin_format::constant_and_pool::get_constant;
@@ -180,18 +162,13 @@ impl State {
                                 let rs1 = opmodes.0;
                                 let rs2 = opmodes.1;
                                 for i in rs1..rs2 {
-                                    let res = self
-                                        .stack()
+                                    self.stack()
                                         .stack
-                                        .push(Value::from(super::PrimeValue::Null));
-                                        //.try_push(Value::from(super::PrimeValue::Null));
-                                    // if res.is_err() {
-                                    //     eprintln!("well~ this is a bug, trying to fix");
-                                    // }
+                                        .insert(i as usize, Value::from(super::PrimeValue::Null));
                                 }
                             }
                             LOADBOOL => {
-                                let (b) = unsafe {
+                                let b = unsafe {
                                     LOADBOOL_OP.get_fix().opmode.get_a(*(ins.0 as *const u32))
                                 };
                                 if b != 0x00 {
@@ -246,8 +223,9 @@ impl State {
                                 }
                             }
                             JMP => {
-                                let value =
-                                    unsafe { JMP_OP.get_fix().opmode.get_ax(*(ins.0 as *const u32)) };
+                                let value = unsafe {
+                                    JMP_OP.get_fix().opmode.get_ax(*(ins.0 as *const u32))
+                                };
                                 let label = self
                                     .stack()
                                     .closure
@@ -267,18 +245,20 @@ impl State {
                                 if let super::PrimeValue::Closure(ccls) =
                                     self.stack().get(cls as isize).clone().0
                                 {
-                                    self.call(Box::new(ccls), till)
+                                    // let top = self.stack().top();
+                                    let mut v = vec![];
+                                    for _ in 0..till {
+                                        v.push(self.stack().pop())
+                                    }
+                                    let mut stack = Stack::new_from_closure(Box::new(ccls));
+                                    stack.stack = v;
+                                    self.frames.push(stack);
                                 } else {
                                     panic!("ERROR! RS{} IS NOT CLOSURE", cls)
                                 }
                             }
                             TAILCALL => {
-                                let len = self.stack().stack.len();
-                                use arrayvec::*;
-                                use std::iter::FromIterator;
-                                let mut new_stack = self.stack().fixed_tops();
-                                //self.stack().stack = ArrayVec::from_iter(new_stack);
-                                self.stack().stack = new_stack;
+                                self.stack().stack = self.stack().fixed_tops();
                                 println!(
                                     "============= TAIL CALL ===========\nstack: {:?}",
                                     self.stack()
@@ -293,9 +273,12 @@ impl State {
                                 }
                             }
                             RETURN => {
-                                let res = self.return_();
-                                if self.frames.len() == 0{
-                                    return (res,None);
+                                // pop function call
+                                let mut res = self.frames.pop().unwrap().fixed_tops();
+                                if self.frames.len() == 0 {
+                                    return (res, None);
+                                } else {
+                                    self.stack().stack.append(&mut res);
                                 }
                             }
                             CALLC => {
@@ -334,12 +317,18 @@ impl State {
                                 let idx = unsafe {
                                     RESUME_OP.get_fix().opmode.get_a(*(ins.0 as *const u32))
                                 };
-                                let super::Value(c,_) = &mut self.stack().get(idx as isize);
-                                if let super::PrimeValue::Thread(t,stack) = &c {
-                                    if let Some(stack) = stack{
-                                        println!("resumed with stack:\n  {:?}",stack);
+                                let super::Value(c, _) = &mut self.stack().get(idx as isize);
+                                if let super::PrimeValue::Thread(_, stack) = &c {
+                                    if let Some(stack) = stack {
+                                        println!("resumed with stack:\n  {:?}", stack);
                                         let h = super::super::new_thread(stack.clone());
-                                        self.stack().set(idx as isize, super::Value::from(super::PrimeValue::Thread(h,Some(stack.clone()))));
+                                        self.stack().set(
+                                            idx as isize,
+                                            super::Value::from(super::PrimeValue::Thread(
+                                                h,
+                                                Some(stack.clone()),
+                                            )),
+                                        );
                                     }
                                 }
                                 // get state of that thread,pc+1,create a new state and execute
@@ -353,34 +342,33 @@ impl State {
                         use super::super::op::comp::*;
                         match iins {
                             EQ => {
-                                use super::super::super::bin_format::*;
-                                let (dst, src1, src2) =
-                                    unsafe { EQ_OP.get_fix().opmode.get_abc(*(ins.0 as *const u32)) };
+                                let (dst, src1, src2) = unsafe {
+                                    EQ_OP.get_fix().opmode.get_abc(*(ins.0 as *const u32))
+                                };
                                 let vsrc1 = self.stack().get(src1 as isize);
                                 let vsrc2 = self.stack().get(src2 as isize);
                                 let res = super::super::op::comp::eq(vsrc1, vsrc2);
                                 self.stack().set(dst as isize, res);
                             }
                             LE => {
-                                use super::super::super::bin_format::*;
-                                let (dst, src1, src2) =
-                                    unsafe { LE_OP.get_fix().opmode.get_abc(*(ins.0 as *const u32)) };
+                                let (dst, src1, src2) = unsafe {
+                                    LE_OP.get_fix().opmode.get_abc(*(ins.0 as *const u32))
+                                };
                                 let vsrc1 = self.stack().get(src1 as isize);
                                 let vsrc2 = self.stack().get(src2 as isize);
                                 let res = super::super::op::comp::le(vsrc1, vsrc2);
                                 self.stack().set(dst as isize, res);
                             }
                             GT => {
-                                use super::super::super::bin_format::*;
-                                let (dst, src1, src2) =
-                                    unsafe { GT_OP.get_fix().opmode.get_abc(*(ins.0 as *const u32)) };
+                                let (dst, src1, src2) = unsafe {
+                                    GT_OP.get_fix().opmode.get_abc(*(ins.0 as *const u32))
+                                };
                                 let vsrc1 = self.stack().get(src1 as isize);
                                 let vsrc2 = self.stack().get(src2 as isize);
                                 let res = super::super::op::comp::gt(vsrc1, vsrc2);
                                 self.stack().set(dst as isize, res);
                             }
                             NEQ => {
-                                use super::super::super::bin_format::*;
                                 let (dst, src1, src2) = unsafe {
                                     NEQ_OP.get_fix().opmode.get_abc(*(ins.0 as *const u32))
                                 };
@@ -390,7 +378,6 @@ impl State {
                                 self.stack().set(dst as isize, res);
                             }
                             LEEQ => {
-                                use super::super::super::bin_format::*;
                                 let (dst, src1, src2) = unsafe {
                                     LEEQ_OP.get_fix().opmode.get_abc(*(ins.0 as *const u32))
                                 };
@@ -400,7 +387,6 @@ impl State {
                                 self.stack().set(dst as isize, res);
                             }
                             GTEQ => {
-                                use super::super::super::bin_format::*;
                                 let (dst, src1, src2) = unsafe {
                                     GTEQ_OP.get_fix().opmode.get_abc(*(ins.0 as *const u32))
                                 };
@@ -458,7 +444,6 @@ impl State {
                                 break;
                             }
                             ADD => {
-                                use super::super::super::bin_format::*;
                                 let (dst, src1, src2) = unsafe {
                                     ADD_OP.get_fix().opmode.get_abc(*(ins.0 as *const u32))
                                 };
@@ -468,7 +453,6 @@ impl State {
                                 self.stack().set(dst as isize, res);
                             }
                             SUB => {
-                                use super::super::super::bin_format::*;
                                 let (dst, src1, src2) = unsafe {
                                     ADD_OP.get_fix().opmode.get_abc(*(ins.0 as *const u32))
                                 };
@@ -478,7 +462,6 @@ impl State {
                                 self.stack().set(dst as isize, res);
                             }
                             MUL => {
-                                use super::super::super::bin_format::*;
                                 let (dst, src1, src2) = unsafe {
                                     ADD_OP.get_fix().opmode.get_abc(*(ins.0 as *const u32))
                                 };
@@ -488,7 +471,6 @@ impl State {
                                 self.stack().set(dst as isize, res);
                             }
                             MOD => {
-                                use super::super::super::bin_format::*;
                                 let (dst, src1, src2) = unsafe {
                                     ADD_OP.get_fix().opmode.get_abc(*(ins.0 as *const u32))
                                 };
@@ -498,7 +480,6 @@ impl State {
                                 self.stack().set(dst as isize, res);
                             }
                             DIV => {
-                                use super::super::super::bin_format::*;
                                 let (dst, src1, src2) = unsafe {
                                     ADD_OP.get_fix().opmode.get_abc(*(ins.0 as *const u32))
                                 };
@@ -527,7 +508,14 @@ impl State {
                                 let idx = unsafe {
                                     CLOSURE_OP.get_fix().opmode.get_ax(*(ins.0 as *const u32))
                                 };
-                                self.load_func(idx as usize);
+                                let func = Box::new(
+                                    self.stack().closure.func().const_func_refs[idx as usize]
+                                        .clone(),
+                                );
+                                self.stack()
+                                    .push(super::Value::from(super::PrimeValue::from(
+                                        super::super::super::bin_format::constant_and_pool::get_constant(func.0, func.1),
+                                    )));
                             }
                             FIXTOP => {
                                 let idx = unsafe {
@@ -539,74 +527,88 @@ impl State {
                                 let idx = unsafe {
                                     NEWTHREAD_OP.get_fix().opmode.get_a(*(ins.0 as *const u32))
                                 };
-                                let super::Value(c,_) = self.stack().get(idx as isize);
-                                if let super::PrimeValue::Closure(c) = c{
-                                    // TODO: GC
+                                let super::Value(c, _) = self.stack().get(idx as isize);
+                                if let super::PrimeValue::Closure(c) = c {
                                     use super::super::*;
-                                    // TODO: new uuid
                                     let h = new_thread(Stack::new_from_closure(Box::new(c)));
-                                    // FIXME: bug!
-                                    let v = super::Value::from(super::PrimeValue::Thread(h,None));
+                                    let v = super::Value::from(super::PrimeValue::Thread(h, None));
                                     self.stack().push(v);
-                                }else{
+                                } else {
                                     panic!("ERROR CURRENT STACK ADDRESS IS NOT CLOSURE")
                                 }
-                            },
+                            }
                             GETTRET => {
-                                // println!("{:?}",self.stack());
                                 let idx = unsafe {
                                     GETTRET_OP.get_fix().opmode.get_a(*(ins.0 as *const u32))
                                 };
-                                let super::Value(c,_) = self.stack().get(idx as isize);
-                                if let super::PrimeValue::Thread(t,_) = &c {
+                                let super::Value(c, _) = self.stack().get(idx as isize);
+                                if let super::PrimeValue::Thread(t, _) = &c {
                                     let mut res = super::super::get_join_handle(*t).await;
+                                    println!("thread returned:\n  {:?}",res);
                                     self.stack().stack.append(&mut res.0);
                                 }
-                                // TODO: get stack return value
-                            },
+                            }
 
                             GETYIELD => {
                                 let idx = unsafe {
                                     GETTRET_OP.get_fix().opmode.get_a(*(ins.0 as *const u32))
                                 };
-                                let super::Value(c,_) = self.stack().get(idx as isize);
-                                if let super::PrimeValue::Thread(t,_) = &c {
-                                    let (mut res,stack) = super::super::get_join_handle(*t).await;
-                                    println!("yielded thread with stack:\n  {:?}",stack);
+                                let super::Value(c, _) = self.stack().get(idx as isize);
+                                if let super::PrimeValue::Thread(t, _) = &c {
+                                    let (mut res, stack) = super::super::get_join_handle(*t).await;
+                                    println!("yielded thread with stack:\n  {:?}", stack);
                                     self.stack().stack.append(&mut res);
-                                    self.stack().set(idx as isize, super::Value::from(super::PrimeValue::Thread(*t,stack.clone())));
+                                    self.stack().set(
+                                        idx as isize,
+                                        super::Value::from(super::PrimeValue::Thread(
+                                            *t,
+                                            stack.clone(),
+                                        )),
+                                    );
                                 }
                             }
                             _ => unimplemented!(),
                         }
                         break;
                     }
-                    // // user def
-                    // else if ins < 0 && ins > 0 {
-                    // }
                     // // debug
-                    else if iins > 0xDF && iins <= 0xFF {
+                    else if iins > 0xDF {
                         use super::super::op::debug::*;
-                        match iins{
+                        match iins {
                             BREAK => {
-                                println!("== BREAK AT LINE {} ==",self.pc());
+                                println!("== BREAK AT LINE {} ==", self.pc());
                                 bk = true;
-                            },
-                            _ => unimplemented!()
+                            }
+                            _ => unimplemented!(),
                         }
                         break;
+                    } else {
+                        panic!("ERROR INSTRUCTION '0x{:02X}' NOT SUPPORTED", iins);
                     }
-                    // } else {
-                    //     panic!("ERROR INSTRUCTION '0x{:02X}' NOT SUPPORTED", ins);
-                    // }
                 }
             } else {
-                return (self.stack().fixed_tops(),None);
+                return (self.stack().fixed_tops(), None);
             }
         }
 
-        // yield
-        let stack: Stack = self.frames.last().unwrap().clone();
-        return (self.stack().fixed_tops(),Some(stack));
+        match self.status {
+            Status::RUNNING => panic!("ERROR NO WAY! IS NOT RUNNING"),
+            Status::ERROR => {
+                println!("STOPED WITH ERROR OCCURS");
+                let stack: Stack = self.frames.last().unwrap().clone();
+                return (self.stack().fixed_tops(), Some(stack));
+            }
+            Status::YIELD => {
+                println!("YIELDED");
+                self.stack().fixed_top = 255;
+                let stack: Stack = self.frames.last().unwrap().clone();
+                return (self.stack().fixed_tops(), Some(stack));
+            }
+            Status::STOP => {
+                println!("STOPED");
+                let stack: Stack = self.frames.last().unwrap().clone();
+                return (self.stack().fixed_tops(), Some(stack));
+            }
+        }
     }
 }

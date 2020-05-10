@@ -1,18 +1,8 @@
 // like bin_format/mod.rs/constant
 use super::*;
-// use super::PrimeType::*;
-use arrayvec::*;
-// stack could only save 256 address which means if you write a function with more than 256+48 local variables(+ arguments) then you are fuking dumm or you works in observatory.
-// for register allocation, amd64 has 4 x 64bit register
-// then 6x8 8 bit register (48)
-// so use linear scan algorithm for 16 register allocation
-// ========================================================
-// well ignore me i wont write asm by my self would I?
-// but we only use u8 for index ~ so ~
 
 #[derive(Debug,Clone,PartialEq)]
 pub struct Stack{
-    // pub stack:ArrayVec<[Value;256]>,
     pub stack:Vec<Value>,
     pub closure:Box<Closure>,
     pub pc: usize,
@@ -29,11 +19,9 @@ unsafe impl Sync for Stack{}
 
 impl Stack{
     pub fn new_from_closure(closure:Box<Closure>)->Stack{
-        //Stack{stack:ArrayVec::new(),pc:0,ir:std::ptr::null(),closure,fixed_top:255}
         Stack{stack:vec!(),pc:0,ir:IR(std::ptr::null()),closure,fixed_top:255}
     }
     pub fn new(func:Box<super::super::super::bin_format::func_type::FuncType>)->Stack{
-        // Stack{stack:ArrayVec::new(),pc:0,ir:std::ptr::null(),closure:Box::new(Closure::new(func.uuid,FuncInClosure::Func(func.clone()),func.arg_types,func.ret_types)),fixed_top:255} //FIXME:GC this will be allocated in heap
         Stack{stack:vec!(),pc:0,ir:IR(std::ptr::null()),closure:Box::new(Closure::new(FuncInClosure::Func(func.clone()),func.arg_types,func.ret_types)),fixed_top:255} //FIXME:GC this will be allocated in heap
     }
 
@@ -42,8 +30,7 @@ impl Stack{
     }
 
     pub fn check_ramain_enougth(&mut self, n: usize) -> bool {
-        //self.stack.remaining_capacity() + n > 255
-        true
+        self.stack.len() < 256
     }
 
     pub fn push(&mut self, val: Value) {
