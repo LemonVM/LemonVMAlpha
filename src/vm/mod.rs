@@ -19,25 +19,40 @@ lazy_static! {
         channels: vec!(),
     });
 }
-
+#[derive(PartialEq)]
 pub enum VMMessage{
     PrintStack = 0x00,
     PrintFrame = 0x01,
     Continue = 0x02,
     Break = 0x03,
+    StepOver = 0x04,
+    StepInto = 0x05,
 }
 
-pub fn new_thread(stack: executer::stack::Stack) -> u32 {
+pub fn new_thread(debug_mode:bool,stack: executer::stack::Stack) -> u32 {
     // TODO: free
     use async_std::sync::channel;
     let uuid = executer::gen_uuid();
     let (message_chan_send,message_recv) = channel(1);
     let (string_chan_send,string_chan_recv) = channel(1);
-    let mut state = executer::state::State::new(uuid,string_chan_send,message_recv);
+    let mut state = executer::state::State::new(debug_mode,uuid,string_chan_send,message_recv);
     state.push_stack(stack);
     let mut pc = std::pin::Pin::new(&mut state);
     let mut tr = THREAD_REGISTER.lock().unwrap();
     tr.threads.push((uuid,async_std::task::spawn(state.execute()),message_chan_send.clone(),string_chan_recv.clone()));
+    uuid
+}
+pub fn new_sub_thread(debug_mode:bool,stack: executer::stack::Stack,sender:Sender<String>,receiver:Receiver<VMMessage>) -> u32 {
+    // TODO: free
+    use async_std::sync::channel;
+    let uuid = executer::gen_uuid();
+    let mut state = executer::state::State::new(debug_mode,uuid,sender.clone(),receiver.clone());
+    state.push_stack(stack);
+    let mut pc = std::pin::Pin::new(&mut state);
+    let mut tr = THREAD_REGISTER.lock().unwrap();
+    let mut dummy0 = channel(1);
+    let mut dummy1 = channel(1);
+    tr.threads.push((uuid,async_std::task::spawn(state.execute()),dummy0.0,dummy1.1));
     uuid
 }
 

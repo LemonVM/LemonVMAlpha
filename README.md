@@ -3,10 +3,22 @@
 ## Dependencies 依赖
 llvm (libclang for FFI)
 
+---
+
+### VM runs binary file
 ![LemonVM](lemonvm.gif)
+
+### VM debugger
+![LemonVM](lemonvm_debugger.gif)
+
+
+---
+
+
 
 <details><summary>Chinese</summary>
 <p>
+
 
 ## 欢迎使用柠檬虚拟机（柠檬VM，LemonVM）
 

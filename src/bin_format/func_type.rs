@@ -79,11 +79,17 @@ instructions:
     }
 }
 
+use std::sync::RwLock;
+lazy_static!{
+    pub static ref LOCAL_VARS : RwLock<Vec<LocalVar>> = RwLock::new(vec!());
+}
 // FOR DEBUG
 #[repr(C)]
 #[derive(Clone, PartialEq, Debug)]
 pub struct LocalVar {
     pub name: VMSym,
+    pub func_uuid:u32,
+    pub stack_pos:u8,
     pub start_pc: VMInt,
     pub end_pc: VMInt,
 }

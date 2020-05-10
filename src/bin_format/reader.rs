@@ -11,6 +11,7 @@ where
     <A as AsMut<[T]>>::as_mut(&mut a).clone_from_slice(slice);
     a
 }
+
 impl Reader {
     pub fn new(data: *const u8) -> Reader {
         Reader { data, pos: 0 }
@@ -327,10 +328,14 @@ impl Reader {
     //         idx: self.read_byte(),
     //     }
     // }
-
+    pub fn read_loc_vars(&mut self){
+        *super::func_type::LOCAL_VARS.write().unwrap() = self.read_vec(|r|r.read_loc_var());
+    }
     pub fn read_loc_var(&mut self) -> super::LocalVar {
         super::LocalVar {
             name: self.read_vm_symbol(),
+            func_uuid: self.read_vm_int(),
+            stack_pos: self.read_byte(),
             start_pc: self.read_vm_int(),
             end_pc: self.read_vm_int(),
         }

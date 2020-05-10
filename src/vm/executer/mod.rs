@@ -117,6 +117,9 @@ impl Closure {
             unimplemented!();
         }
     }
+    pub fn get_func_uuid(&self) -> u32{
+        self.func().uuid
+    }
 }
 impl PartialEq for Closure {
     fn eq(&self, other: &Self) -> bool {

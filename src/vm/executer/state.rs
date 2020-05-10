@@ -10,6 +10,7 @@ use super::super::VMMessage;
 use super::stack::IR;
 use async_std::sync::*;
 pub struct State {
+    pub debug_mode:bool,
     pub uuid: u32,
     pub status: Status,
     pub frames: Vec<Stack>,
@@ -24,14 +25,33 @@ impl State {
             .last_mut()
             .expect("ERROR! FAILED TO GET CURRENT CALL STACK")
     }
+    
+    pub fn stack_with_name(&self)->Vec<(super::super::super::VMSym, super::Value)>{
+        if !self.debug_mode{
+            return vec!();
+        }
+        let stack = self.frames.last().unwrap();
+        let pc = stack.pc.clone() as u32;
+        let vars = super::super::super::func_type::LOCAL_VARS.read().unwrap();
+        let lvar = vars.iter().filter(|v| v.func_uuid != stack.closure.get_func_uuid());
+        let mut cvar = lvar.filter(|l| l.start_pc > pc as u32 || l.end_pc < pc as u32).collect::<Vec<_>>();
+        cvar.sort_by(|a,b|a.stack_pos.partial_cmp(&b.stack_pos).unwrap());
+        let mut ps = vec!();
+        for v in cvar{
+            ps.push((v.name.clone(),stack.stack[v.stack_pos as usize].clone()));
+        }
+        ps
+    }
+
     pub fn push_stack(&mut self, stack: Stack) {
         self.frames.push(stack);
     }
     pub fn pop_stack(&mut self) {
         self.frames.pop();
     }
-    pub fn new(uuid: u32, sender: Sender<String>, receiver: Receiver<VMMessage>) -> Self {
+    pub fn new(debug_mode:bool,uuid: u32, sender: Sender<String>, receiver: Receiver<VMMessage>) -> Self {
         State {
+            debug_mode,
             uuid,
             frames: vec![],
             status: Status::RUNNING,
@@ -97,15 +117,23 @@ impl State {
     //     res
     // }
     pub async fn execute(mut self) -> (Vec<super::Value>, Option<Stack>) {
+        use super::{CReceiver,CSender};
         let mut bk = false;
+        let mut step_into = false;
+        let mut step_over = false;
         while self.status == Status::RUNNING {
             if let Some(ins) = self.fetch() {
                 let iins = unsafe { *ins.0 as u8 };
-                println!("IR: 0x{:02x}", iins);
+                
+                if self.debug_mode{
+                    println!("IR: 0x{:02x}\nStack: {:?}", iins,self.stack());
+                }else{
+                    println!("IR: 0x{:02x}",iins);
+                }
                 loop {
                     loop {
                         if self.sr.1.is_empty() {
-                            if bk {
+                            if bk || self.debug_mode {
                                 continue;
                             } else {
                                 break;
@@ -119,7 +147,7 @@ impl State {
                                     self.sr.0.send(format!("{:?}", self.frames)).await;
                                 }
                                 PrintStack => {
-                                    self.sr.0.send(format!("{:?}", self.frames.last())).await;
+                                    self.sr.0.send(format!("stack: {:?}\nnamed: {:?}", self.frames.last(),self.stack_with_name())).await;
                                 }
                                 Break => {
                                     bk = true;
@@ -127,9 +155,17 @@ impl State {
                                 Continue => {
                                     bk = false;
                                 }
+                                StepInto => {
+                                    step_into = true;
+                                    break;
+                                }
+                                StepOver => {
+                                    step_over = true;
+                                    break;
+                                }
                             }
                         }
-                        if bk {
+                        if bk || self.debug_mode {
                             continue;
                         } else {
                             break;
@@ -321,7 +357,7 @@ impl State {
                                 if let super::PrimeValue::Thread(_, stack) = &c {
                                     if let Some(stack) = stack {
                                         println!("resumed with stack:\n  {:?}", stack);
-                                        let h = super::super::new_thread(stack.clone());
+                                        let h = super::super::new_sub_thread(step_into,stack.clone(),self.sr.0.clone(),self.sr.1.clone());
                                         self.stack().set(
                                             idx as isize,
                                             super::Value::from(super::PrimeValue::Thread(
@@ -559,7 +595,7 @@ impl State {
                                 let super::Value(c, _) = self.stack().get(idx as isize);
                                 if let super::PrimeValue::Closure(c) = c {
                                     use super::super::*;
-                                    let h = new_thread(Stack::new_from_closure(Box::new(c)));
+                                    let h = new_sub_thread(step_into,Stack::new_from_closure(Box::new(c)),self.sr.0.clone(), self.sr.1.clone());
                                     let v = super::Value::from(super::PrimeValue::Thread(h, None));
                                     self.stack().push(v);
                                 } else {
@@ -583,7 +619,7 @@ impl State {
                                     GETTRET_OP.get_fix().opmode.get_a(*(ins.0 as *const u32))
                                 };
                                 let super::Value(c, _) = self.stack().get(idx as isize);
-                                if let super::PrimeValue::Thread(t, _) = &c {
+                                if let super::PrimeValue::Thread(t,_) = &c {
                                     let (mut res, stack) = super::super::get_join_handle(*t).await;
                                     println!("yielded thread with stack:\n  {:?}", stack);
                                     self.stack().stack.append(&mut res);
