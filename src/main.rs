@@ -114,9 +114,13 @@ async fn main() {
             }else if ss == "2" {
                 println!("{}","    > step over".blue().bold());
                 s.send(VMMessage::StepOver).await;
-            }else{
-                println!("{}","COMMAND NOT FOUND!".red().bold());
-                continue;
+//                 dear ci damn stupid
+//             }else{
+//                 println!("{}","COMMAND NOT FOUND!".red().bold());
+//                 continue;
+//             }
+            } else {
+                s.send(VMMessage::StepOver).await;
             }
         }
 
