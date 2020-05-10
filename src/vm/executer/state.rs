@@ -333,6 +333,35 @@ impl State {
                                 }
                                 // get state of that thread,pc+1,create a new state and execute
                             }
+                            CALLC => {
+                                let (a, b, till) = unsafe {
+                                    CALLC_OP.get_fix().opmode.get_abc(*(ins.0 as *const u32))
+                                };
+                                if let super::Value(super::PrimeValue::NType(ty), _) =
+                                    self.stack().pop()
+                                {
+                                    if let super::Value(super::PrimeValue::Sym(path), _) =
+                                        self.stack().get(a as isize)
+                                    {
+                                        if let super::Value(super::PrimeValue::Sym(name), _) =
+                                            self.stack().get(b as isize)
+                                        {
+                                            let r = super::ffi::dynamic_lib::pass_args_to_NFunc_and_call(
+                                                path,name,ty,
+                                                self.stack(),
+                                                till,
+                                            );
+                                            self.stack().push(r);
+                                        } else {
+                                            panic!("ERROR! IS NOT SYM")
+                                        }
+                                    } else {
+                                        panic!("ERROR! IS NOT SYM")
+                                    }
+                                } else {
+                                    panic!("ERROR! IS NOT TYPE")
+                                }
+                            }
                             _ => unimplemented!(),
                         }
                         break;

@@ -1,5 +1,5 @@
-#[test]
-fn TestFuncCall() {
+#[async_std::test]
+async fn TestFuncCall() {
     let constant_pool = [
         0x01,
         0x11,
@@ -41,9 +41,10 @@ fn TestFuncCall() {
     // start
     // label : 0
         0x00,0x00,
-        0x02,0x00,0x00,0x00,
+        0x03,0x00,0x00,0x00,
     
         0x00,0x45,0x00,0x00,0x00,
+        0x00,0x4d,0x00,0x00,0x00,
         0x00,0x22,0x00,0x00,0x00,
     // end
         0x01,0x00,0x00,0x00,
@@ -52,21 +53,101 @@ fn TestFuncCall() {
         0x00,0x00,0x00,0x00,
     ];
     super::super::super::super::reader::Reader::read_constant_pool(constant_pool.as_ptr(), constant_pool.len());
+    //println!("{:?}",constant_and_pool::CONSTANT_POOL.read().unwrap());
     let mut reader = super::super::super::super::reader::Reader::new(bytes.as_ptr());
     let func = reader.read_func();
     println!("{}",func);
-    
-    let mut state = super::super::super::super::vm::executer::state::State::new();
-    let mut stack= super::super::super::super::vm::executer::stack::Stack::new(Box::new(func));
-    state.push_stack(stack);
-    println!("===== testing funccall =====");
-    println!("before execute {:?}",state.stack().stack);
-    state.execute();
-    println!("after execute {:?}\n",state.stack().stack);
-    assert_eq!(*state.stack().stack.last().unwrap(),super::super::Value(super::super::PrimeValue::Null,super::super::super::super::bin_format::Type::Kind));
+    let stack= super::super::super::super::vm::executer::stack::Stack::new(Box::new(func));
+    use super::super::super::super::vm::*;
+    let h = new_thread(stack);
+    let (s,r) = get_sender_receiver(h);
+    println!("===== testing FuncCall =====");
+    let (v,_) = get_join_handle(h).await;
+    assert_eq!(v[0],super::super::Value(super::super::PrimeValue::Null,super::super::super::super::bin_format::Type::Kind));
 }
-#[test]
-fn TestJMP(){
+
+#[async_std::test]
+async fn TestThreadYieldResume() {
+    let constant_pool = [
+        0x01,
+        0x11,
+        0x01,0x00,0x00,0x00,
+        0x01,0x00,0x00,0x00,
+    
+        0x08, 0x00, 0x00, 0x00, 
+        0x72, 0x00,  0x65, 0x00,  0x74, 0x00,  0x5F, 0x00,  0x6E, 0x00,  0x75, 0x00,  0x6C, 0x00,  0x6C, 0x00, 
+        0x01,0x00,0x00,0x00,
+        0x00,
+        0x00,
+        0x01,
+        0x00,0x00,0x00,0x00,
+        0x01,0x00,0x00,0x00,
+        0x00,
+        0x01,0x00,
+        // start
+        // label : 0
+        0x00,0x00,
+        0x07,0x00,0x00,0x00,
+    
+        0x00,0x02,0x00,0x01,0x00,
+        0x00,0x4d,0x00,0x00,0x00,
+    
+        0x00,0x29,0x00,0x00,0x00,
+    
+        0x00,0x02,0x01,0x02,0x00,
+        0x00,0x4d,0x00,0x00,0x00,
+        0x00,0x4d,0x01,0x00,0x00,
+    
+        0x00,0x25,0x00,0x00,0x00,
+        // end
+    
+        0x00,0x00,0x00,0x00,
+        0x00,0x00,0x00,0x00,
+    ];
+    let bytes = [
+    0x02, 0x00, 0x00, 0x00, 0x4c, 0x00, 0x65, 0x00,
+    0x00,0x00,0x00,0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x00,0x00,0x00,0x00,
+    0x00,0x00,0x00,0x00,
+    0x01,0x00,
+// start
+// label : 0
+    0x00,0x00,
+    0x07,0x00,0x00,0x00,
+
+    0x00,0x45,0x00,0x00,0x00,
+    0x00,0x4e,0x00,0x00,0x00,
+    0x00,0x4f,0x01,0x00,0x00,
+    0x00,0x30,0x01,0x00,0x00,
+    0x00,0x50,0x01,0x00,0x00,
+
+    0x00,0x4d,0x02,0x00,0x00,
+    0x00,0x4d,0x03,0x00,0x00,
+// end
+    0x01,0x00,0x00,0x00,
+    0x11,0x01,0x00,0x00,0x00,
+
+    0x00,0x00,0x00,0x00,
+];
+    super::super::super::super::reader::Reader::read_constant_pool(constant_pool.as_ptr(), constant_pool.len());
+    //println!("{:?}",constant_and_pool::CONSTANT_POOL.read().unwrap());
+    let mut reader = super::super::super::super::reader::Reader::new(bytes.as_ptr());
+    let func = reader.read_func();
+    println!("{}",func);
+    let stack= super::super::super::super::vm::executer::stack::Stack::new(Box::new(func));
+    use super::super::super::super::vm::*;
+    let h = new_thread(stack);
+    let (s,r) = get_sender_receiver(h);
+    println!("===== testing FuncCall =====");
+    let (v,_) = get_join_handle(h).await;
+    assert_eq!(v[0],super::super::Value(super::super::PrimeValue::Null,super::super::super::super::bin_format::Type::Kind));
+}
+
+#[async_std::test]
+async fn TestJMP(){
     let constant_pool = [
         0x01,
         0x04,0x01,0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x4a,0xd8,0x12,0x4d,0xfb,0x21,0x09,0x40
@@ -95,10 +176,11 @@ fn TestJMP(){
         0x02,0x00,
         0x01,0x00,0x00,0x00,
         0x00,0x20,0x01,0x00,0x00,
-        // label : 2
+    // label : 3
         0x03,0x00,
-        0x01,0x00,0x00,0x00,
+        0x02,0x00,0x00,0x00,
         0x00,0x00,0x00,0x00,0x00,
+        0x00,0x4d,0x00,0x00,0x00,
     // end
         0x00,0x00,0x00,0x00,
         0x00,0x00,0x00,0x00,
@@ -108,18 +190,22 @@ fn TestJMP(){
     let func = reader.read_func();
     println!("{}",func);
 
-    let mut state = super::super::super::super::vm::executer::state::State::new();
-    let mut stack= super::super::super::super::vm::executer::stack::Stack::new(Box::new(func));
-    state.push_stack(stack);
-    println!("===== testing jmp =====");
-    println!("before execute {:?}",state.stack().stack);
-    state.execute();
-    println!("after execute {:?}\n",state.stack().stack);
-    assert_eq!(*state.stack().stack.last().unwrap(),super::super::Value(super::super::PrimeValue::Null,super::super::super::super::bin_format::Type::Kind));
+    super::super::super::super::reader::Reader::read_constant_pool(constant_pool.as_ptr(), constant_pool.len());
+    //println!("{:?}",constant_and_pool::CONSTANT_POOL.read().unwrap());
+    let mut reader = super::super::super::super::reader::Reader::new(bytes.as_ptr());
+    let func = reader.read_func();
+    println!("{}",func);
+    let stack= super::super::super::super::vm::executer::stack::Stack::new(Box::new(func));
+    use super::super::super::super::vm::*;
+    let h = new_thread(stack);
+    let (s,r) = get_sender_receiver(h);
+    println!("===== testing FuncCall =====");
+    let (v,_) = get_join_handle(h).await;
+    assert_eq!(v[0],super::super::Value(super::super::PrimeValue::Null,super::super::super::super::bin_format::Type::Kind));
 }
 
-#[test]
-fn TestJPE(){
+#[async_std::test]
+async fn TestJPE(){
     let constant_pool = [
         0x01,
         0x04,0x01,0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x4a,0xd8,0x12,0x4d,0xfb,0x21,0x09,0x40
@@ -153,27 +239,27 @@ fn TestJPE(){
         0x00,0x20,0x03,0x00,0x00,
     // label : 3
         0x03,0x00,
-        0x00,0x00,0x00,0x00,
+        0x01,0x00,0x00,0x00,
+        0x00,0x4d,0x01,0x00,0x00,
     // end
         0x00,0x00,0x00,0x00,
         0x00,0x00,0x00,0x00,
     ];
     super::super::super::super::reader::Reader::read_constant_pool(constant_pool.as_ptr(), constant_pool.len());
+    //println!("{:?}",constant_and_pool::CONSTANT_POOL.read().unwrap());
     let mut reader = super::super::super::super::reader::Reader::new(bytes.as_ptr());
     let func = reader.read_func();
     println!("{}",func);
-
-    let mut state = super::super::super::super::vm::executer::state::State::new();
-    let mut stack= super::super::super::super::vm::executer::stack::Stack::new(Box::new(func));
-    state.push_stack(stack);
-    println!("===== testing jpe =====");
-    println!("before execute {:?}",state.stack().stack);
-    state.execute();
-    println!("after execute {:?}\n",state.stack().stack);
-    assert_eq!(state.stack().stack.last().unwrap().0,super::super::PrimeValue::Num(3.1415926));
+    let stack= super::super::super::super::vm::executer::stack::Stack::new(Box::new(func));
+    use super::super::super::super::vm::*;
+    let h = new_thread(stack);
+    let (s,r) = get_sender_receiver(h);
+    println!("===== testing FuncCall =====");
+    let (v,_) = get_join_handle(h).await;
+    assert_eq!(v[0].0,super::super::PrimeValue::Num(3.1415926));
 }
-#[test]
-fn TestJPN(){
+#[async_std::test]
+async fn TestJPN(){
     let constant_pool = [
         0x01,
         0x04,0x01,0x00,0x00,0x00,0x01,0x00,0x00,0x00,0x4a,0xd8,0x12,0x4d,0xfb,0x21,0x09,0x40
@@ -207,22 +293,22 @@ fn TestJPN(){
         0x00,0x20,0x03,0x00,0x00,
     // label : 3
         0x03,0x00,
-        0x00,0x00,0x00,0x00,
+        0x01,0x00,0x00,0x00,
+        0x00,0x4d,0x01,0x00,0x00,
     // end
         0x00,0x00,0x00,0x00,
         0x00,0x00,0x00,0x00,
     ];
     super::super::super::super::reader::Reader::read_constant_pool(constant_pool.as_ptr(), constant_pool.len());
+    //println!("{:?}",constant_and_pool::CONSTANT_POOL.read().unwrap());
     let mut reader = super::super::super::super::reader::Reader::new(bytes.as_ptr());
     let func = reader.read_func();
     println!("{}",func);
-
-    let mut state = super::super::super::super::vm::executer::state::State::new();
-    let mut stack= super::super::super::super::vm::executer::stack::Stack::new(Box::new(func));
-    state.push_stack(stack);
-    println!("===== testing jpn =====");
-    println!("before execute {:?}",state.stack().stack);
-    state.execute();
-    println!("after execute {:?}\n",state.stack().stack);
-    assert_eq!(state.stack().stack.last().unwrap().0,super::super::PrimeValue::Num(3.1415926));
+    let stack= super::super::super::super::vm::executer::stack::Stack::new(Box::new(func));
+    use super::super::super::super::vm::*;
+    let h = new_thread(stack);
+    let (s,r) = get_sender_receiver(h);
+    println!("===== testing FuncCall =====");
+    let (v,_) = get_join_handle(h).await;
+    assert_eq!(v[0].0,super::super::PrimeValue::Num(3.1415926));
 }

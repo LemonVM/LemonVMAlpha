@@ -1,7 +1,7 @@
 pub mod ffi;
 pub mod stack;
 pub mod state;
-// mod test;
+mod test;
 use super::super::bin_format::*;
 
 pub fn gen_uuid()->u32{

@@ -1,5 +1,5 @@
-#[test]
-fn TestEq() {
+#[async_std::test]
+async fn TestEq() {
     let constant_pool = [
         0x01,
         0x03,
@@ -21,33 +21,32 @@ fn TestEq() {
     // start
     // label : 0
         0x00,0x00,
-        0x04,0x00,0x00,0x00,
+        0x05,0x00,0x00,0x00,
         0xFF,0x01,0x05,0x00,0x03,0x01,0x00,0x00,0x00,
         0xFF,0x01,0x05,0x00,0x03,0x02,0x00,0x00,0x00,
         0x00,0x02,0x02,0x03,0x00,
         0x00,0x90,0x02,0x00,0x01,
+        0x00,0x4d,0x02,0x00,0x00,
     // end
         0x00,0x00,0x00,0x00,
         0x00,0x00,0x00,0x00,
     ];
-    reader::Reader::read_constant_pool(constant_pool.as_ptr(), constant_pool.len());
-    let mut reader = reader::Reader::new(bytes.as_ptr());
+    super::super::super::super::reader::Reader::read_constant_pool(constant_pool.as_ptr(), constant_pool.len());
+    //println!("{:?}",constant_and_pool::CONSTANT_POOL.read().unwrap());
+    let mut reader = super::super::super::super::reader::Reader::new(bytes.as_ptr());
     let func = reader.read_func();
     println!("{}",func);
-
-    let mut state = super::super::state::State::new();
-    let mut stack= super::super::stack::Stack::new(Box::new(func));
-    state.push_stack(stack);
-    println!("===== testing eq =====");
-    println!("before execute {:?}",state.stack().stack);
-    state.execute();
-    println!("after execute {:?}\n",state.stack().stack);
-    use super::super::super::super::bin_format::*;
-    assert_eq!(*(state.stack().stack.last().unwrap()),super::super::Value(super::super::PrimeValue::Bool(true),super::super::super::super::bin_format::Type::Mono(TAG_BOOL)))
+    let stack= super::super::super::super::vm::executer::stack::Stack::new(Box::new(func));
+    use super::super::super::super::vm::*;
+    let h = new_thread(stack);
+    let (s,r) = get_sender_receiver(h);
+    println!("===== testing FuncCall =====");
+    let (v,_) = get_join_handle(h).await;
+    assert_eq!(v[0],super::super::Value(super::super::PrimeValue::Bool(true),super::super::super::super::bin_format::Type::Mono(0x01)))
 }
 
-#[test]
-fn FIB() {
+#[async_std::test]
+async fn FIB() {
     /*
 stack  var     ins
 0        n
@@ -152,12 +151,13 @@ stack  var     ins
     // start
     // label : 0
         0x00,0x00,
-        0x05,0x00,0x00,0x00,
+        0x06,0x00,0x00,0x00,
         0x00,0x45,0x00,0x00,0x00,
         0xFF,0x01,0x05,0x00,0x03,0x02,0x00,0x00,0x00,
         0xFF,0x01,0x05,0x00,0x03,0x01,0x00,0x00,0x00,
         0xFF,0x01,0x05,0x00,0x03,0x03,0x00,0x00,0x00,
         0x00,0x22,0x00,0x03,0x00,
+        0x00,0x4d,0x01,0x00,0x00,
     // end
         0x01,0x00,0x00,0x00,
         0x11,0x01,0x00,0x00,0x00,
@@ -166,17 +166,16 @@ stack  var     ins
     ];
     
     super::super::super::super::reader::Reader::read_constant_pool(constant_pool.as_ptr(), constant_pool.len());
+    //println!("{:?}",constant_and_pool::CONSTANT_POOL.read().unwrap());
     let mut reader = super::super::super::super::reader::Reader::new(bytes.as_ptr());
     let func = reader.read_func();
     println!("{}",func);
-
-    let mut state = super::super::state::State::new();
-    let mut stack= super::super::stack::Stack::new(Box::new(func));
-    state.push_stack(stack);
-    println!("===== testing fib =====");
-    println!("before execute {:?}",state.stack().stack);
-    state.execute();
-    println!("after execute {:?}\n",state.stack().stack);
-    assert_eq!(*(state.stack().stack.last().unwrap()),super::super::Value(super::super::PrimeValue::Int(610),super::super::super::super::bin_format::Type::Mono(super::super::super::super::TAG_INT)));
+    let stack= super::super::super::super::vm::executer::stack::Stack::new(Box::new(func));
+    use super::super::super::super::vm::*;
+    let h = new_thread(stack);
+    let (s,r) = get_sender_receiver(h);
+    println!("===== testing FuncCall =====");
+    let (v,_) = get_join_handle(h).await;
+    assert_eq!(v[0],super::super::Value(super::super::PrimeValue::Int(610),super::super::super::super::bin_format::Type::Mono(super::super::super::super::TAG_INT)));
     println!("LEMONVM DID IT!!!!!!!!!!! FIBIONACCI!!!!!!!");
 }
