@@ -56,6 +56,8 @@ pub enum PrimeValue {
 
     Thread(u32,Option<stack::Stack>), //TODO: 完成这玩意儿
     Channel(CSender, CReceiver),
+
+    Error(Box<Value>),
 }
 
 unsafe impl Send for PrimeValue {}
@@ -218,7 +220,8 @@ impl From<PrimeValue> for Type {
             } //TODO: 完成这玩意儿
             //Thread(),//TODO: 完成这玩意儿 和 Channel
             NType(t) => Self::Kind,
-            Thread(_,_) => Self::Kind,
+            Thread(_,_) => Self::Mono(TAG_THREAD),
+            Error(v) => Self::Poly(Box::new(Self::Mono(TAG_ERROR)),vec!(v.1.clone())),
             _ => unimplemented!(),
         }
     }

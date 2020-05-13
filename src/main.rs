@@ -44,24 +44,15 @@ async fn main() {
         // start
         // label : 0
         0x00,0x00,
-        0x07,0x00,0x00,0x00,
-    
+        0x02,0x00,0x00,0x00,
         0x00,0x02,0x00,0x01,0x00,
-        0x00,0x4d,0x00,0x00,0x00,
-    
-        0x00,0x29,0x00,0x00,0x00,
-    
-        0x00,0x02,0x01,0x02,0x00,
-        0x00,0x4d,0x00,0x00,0x00,
-        0x00,0x4d,0x01,0x00,0x00,
-    
-        0x00,0x25,0x00,0x00,0x00,
+        0x00,0x04,0x00,0x00,0x00,
         // end
     
         0x00,0x00,0x00,0x00,
         0x00,0x00,0x00,0x00,
     ];
-    
+
     let bytes = [
         0x02, 0x00, 0x00, 0x00, 0x4c, 0x00, 0x65, 0x00,
         0x00,0x00,0x00,0x00,
@@ -70,20 +61,25 @@ async fn main() {
         0x00,
         0x00,0x00,0x00,0x00,
         0x00,0x00,0x00,0x00,
-        0x01,0x00,
+        // start
+        // label : 0
+        0x02,0x00,
         // start
         // label : 0
         0x00,0x00,
-        0x07,0x00,0x00,0x00,
+        0x05,0x00,0x00,0x00,
 
         0x00,0x45,0x00,0x00,0x00,
         0x00,0x4e,0x00,0x00,0x00,
-        0x00,0x4f,0x01,0x00,0x00,
-        0x00,0x30,0x01,0x00,0x00,
         0x00,0x50,0x01,0x00,0x00,
+        0x00,0x31,0x00,0x01,0x00,
+        0x00,0x4d,0x01,0x00,0x00,
 
+        0x00,0x01,
+        0x03,0x00,0x00,0x00,
+        0x00,0x55,0x02,0x00,0x00,
         0x00,0x4d,0x02,0x00,0x00,
-        0x00,0x4d,0x03,0x00,0x00,
+        0x00,0x24,0x00,0x00,0x00,
         // end
         0x01,0x00,0x00,0x00,
         0x11,0x01,0x00,0x00,0x00,
@@ -96,28 +92,32 @@ async fn main() {
     //println!("{}",func);
     let stack= vm::executer::stack::Stack::new(Box::new(func));
     use vm::*;
-    let debug = true;
+    let debug = false;
     let h = new_thread(debug,stack);
     let (s,r) = get_sender_receiver(h.clone());
     println!("===== testing Async =====");
     println!("UUID: {}",h);
-    async_std::task::spawn(async move{
-        println!("{:?}",get_join_handle(h).await);
-        std::process::exit(0);
-    });
-        while debug{
-            // println!("1 - step into\n 2 - step over");
-            let ss = get_input("1 - step into\n2 - step over");
-            if ss == "1"{
-                println!("{}","    > step into\n".blue().bold());
-                s.send(VMMessage::StepInto).await;
-            }else if ss == "2" {
-                println!("{}","    > step over".blue().bold());
-                s.send(VMMessage::StepOver).await;
-            }else{
-                println!("{}","COMMAND NOT FOUND!".red().bold());
-                continue;
+    if debug{
+        async_std::task::spawn(async move{
+            println!("{:?}",get_join_handle(h).await);
+            std::process::exit(0);
+        });
+            while debug{
+                // println!("1 - step into\n 2 - step over");
+                let ss = get_input("1 - step into\n2 - step over");
+                if ss == "1"{
+                    println!("{}","    > step into\n".blue().bold());
+                    s.send(VMMessage::StepInto).await;
+                }else if ss == "2" {
+                    println!("{}","    > step over".blue().bold());
+                    s.send(VMMessage::StepOver).await;
+                }else{
+                    println!("{}","COMMAND NOT FOUND!".red().bold());
+                    continue;
+                }
             }
-        }
+    }else{
+        println!("{:?}",get_join_handle(h).await);
+    }
 
 }

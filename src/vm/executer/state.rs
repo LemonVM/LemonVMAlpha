@@ -10,7 +10,7 @@ use super::super::VMMessage;
 use super::stack::IR;
 use async_std::sync::*;
 pub struct State {
-    pub debug_mode:bool,
+    pub debug_mode: bool,
     pub uuid: u32,
     pub status: Status,
     pub frames: Vec<Stack>,
@@ -20,36 +20,54 @@ unsafe impl Send for State {}
 unsafe impl Sync for State {}
 
 impl State {
+    #[inline]
     pub fn stack(&mut self) -> &mut Stack {
         self.frames
             .last_mut()
             .expect("ERROR! FAILED TO GET CURRENT CALL STACK")
     }
-    
-    pub fn stack_with_name(&self)->Vec<(super::super::super::VMSym, super::Value)>{
-        if !self.debug_mode{
-            return vec!();
+
+    pub fn stack_with_name(&self) -> Vec<(super::super::super::VMSym, super::Value)> {
+        if !self.debug_mode {
+            return vec![];
         }
         let stack = self.frames.last().unwrap();
         let pc = stack.pc.clone() as u32;
         let vars = super::super::super::func_type::LOCAL_VARS.read().unwrap();
-        let lvar = vars.iter().filter(|v| v.func_uuid != stack.closure.get_func_uuid());
-        let mut cvar = lvar.filter(|l| l.start_pc > pc as u32 || l.end_pc < pc as u32).collect::<Vec<_>>();
-        cvar.sort_by(|a,b|a.stack_pos.partial_cmp(&b.stack_pos).unwrap());
-        let mut ps = vec!();
-        for v in cvar{
-            ps.push((v.name.clone(),stack.stack[v.stack_pos as usize].clone()));
+        let lvar = vars
+            .iter()
+            .filter(|v| v.func_uuid != stack.closure.get_func_uuid());
+        let mut cvar = lvar
+            .filter(|l| l.start_pc > pc as u32 || l.end_pc < pc as u32)
+            .collect::<Vec<_>>();
+        cvar.sort_by(|a, b| a.stack_pos.partial_cmp(&b.stack_pos).unwrap());
+        let mut ps = vec![];
+        for v in cvar {
+            ps.push((v.name.clone(), stack.stack[v.stack_pos as usize].clone()));
         }
         ps
     }
 
+    #[inline]
+    pub fn on_err(&mut self)->bool{
+        self.stack().on_err
+    }
+
+    #[inline]
     pub fn push_stack(&mut self, stack: Stack) {
         self.frames.push(stack);
     }
+    #[inline]
     pub fn pop_stack(&mut self) {
         self.frames.pop();
     }
-    pub fn new(debug_mode:bool,uuid: u32, sender: Sender<String>, receiver: Receiver<VMMessage>) -> Self {
+    #[inline]
+    pub fn new(
+        debug_mode: bool,
+        uuid: u32,
+        sender: Sender<String>,
+        receiver: Receiver<VMMessage>,
+    ) -> Self {
         State {
             debug_mode,
             uuid,
@@ -58,12 +76,15 @@ impl State {
             sr: (sender, receiver),
         }
     }
+    #[inline]
     pub fn ir(&mut self) -> &mut *const u8 {
         &mut self.stack().ir.0
     }
+    #[inline]
     pub fn pc(&mut self) -> &mut usize {
         &mut self.stack().pc
     }
+    #[inline]
     pub fn fetch(&mut self) -> Option<IR> {
         if self.frames.len() == 0 {
             return None;
@@ -89,46 +110,24 @@ impl State {
             self.fetch()
         }
     }
-    // args is how deep on stack top will copy as argument
-    // pub fn call(&mut self, f: Box<super::Closure>, args: u8) {
-    //     let top = self.stack().top();
-    //     let mut v = vec![];
-    //     for i in 0..args {
-    //         v.push(self.stack().pop())
-    //     }
-    //     let mut stack = Stack::new_from_closure(f);
-    //     stack.stack = v;
-    //     self.frames.push(stack);
-    //     // self.stack().pc = 0
-    // }
-    // move return value to current stack top
-    // pub fn return_(&mut self)->Vec<super::Value> {
-
-    //     let mut res = self.stack().fixed_tops();
-    //     // pop function call
-    //     let f = self.frames.pop().unwrap();
-    //     if self.frames.len() == 0{
-    //         return res;
-    //     }
-    //     if !self.stack().check_ramain_enougth(res.len()) {
-    //         panic!("ERROR! STACK OVERFLOWED")
-    //     }
-    //     self.stack().stack.append(&mut res);
-    //     res
-    // }
     pub async fn execute(mut self) -> (Vec<super::Value>, Option<Stack>) {
-        use super::{CReceiver,CSender};
+        use super::{CReceiver, CSender};
         let mut bk = false;
         let mut step_into = false;
         let mut step_over = false;
         while self.status == Status::RUNNING {
             if let Some(ins) = self.fetch() {
                 let iins = unsafe { *ins.0 as u8 };
-                
-                if self.debug_mode{
-                    println!("IR: 0x{:02x}\nStack: {:?}", iins,self.stack());
-                }else{
-                    println!("IR: 0x{:02x}",iins);
+                if self.on_err() && iins != super::super::op::cf::ERRJMP {
+                    self.status = Status::ERROR;
+                    println!("{}",format!("ERROR WITH VALUE {:?}",self.stack().fixed_tops()).red());
+                    continue;
+                }
+
+                if self.debug_mode {
+                    println!("IR: 0x{:02x}\nStack: {:?}", iins, self.stack());
+                } else {
+                    println!("IR: 0x{:02x}", iins);
                 }
                 loop {
                     loop {
@@ -147,7 +146,14 @@ impl State {
                                     self.sr.0.send(format!("{:?}", self.frames)).await;
                                 }
                                 PrintStack => {
-                                    self.sr.0.send(format!("stack: {:?}\nnamed: {:?}", self.frames.last(),self.stack_with_name())).await;
+                                    self.sr
+                                        .0
+                                        .send(format!(
+                                            "stack: {:?}\nnamed: {:?}",
+                                            self.frames.last(),
+                                            self.stack_with_name()
+                                        ))
+                                        .await;
                                 }
                                 Break => {
                                     bk = true;
@@ -214,6 +220,16 @@ impl State {
                                     self.stack()
                                         .push(Value::from(super::PrimeValue::Bool(false)));
                                 }
+                            },
+                            LOADERR => {
+                                let a = unsafe {
+                                    LOADERR_OP.get_fix().opmode.get_a(*(ins.0 as *const u32))
+                                };
+                                let err = super::Value::from(super::PrimeValue::Error(Box::new(self.stack().get(a as usize))));
+                                let len = self.stack().stack.len();
+                                self.stack().push(err);
+                                self.stack().fix_to_top(len);
+                                self.stack().on_err = true;
                             }
                             _ => unimplemented!(),
                         }
@@ -227,7 +243,7 @@ impl State {
                                 let (e, loc) = unsafe {
                                     JPE_OP.get_fix().opmode.get_abx(*(ins.0 as *const u32))
                                 };
-                                if self.stack().get(e as isize).0 == super::PrimeValue::Bool(true) {
+                                if self.stack().get(e as usize).0 == super::PrimeValue::Bool(true) {
                                     let label = self
                                         .stack()
                                         .closure
@@ -244,7 +260,7 @@ impl State {
                                 let (e, loc) = unsafe {
                                     JPE_OP.get_fix().opmode.get_abx(*(ins.0 as *const u32))
                                 };
-                                if self.stack().get(e as isize).0 == super::PrimeValue::Bool(false)
+                                if self.stack().get(e as usize).0 == super::PrimeValue::Bool(false)
                                 {
                                     let label = self
                                         .stack()
@@ -279,7 +295,7 @@ impl State {
                                     CALL_OP.get_fix().opmode.get_ab(*(ins.0 as *const u32))
                                 };
                                 if let super::PrimeValue::Closure(ccls) =
-                                    self.stack().get(cls as isize).clone().0
+                                    self.stack().get(cls as usize).clone().0
                                 {
                                     // let top = self.stack().top();
                                     let mut v = vec![];
@@ -303,9 +319,9 @@ impl State {
                                 self.stack().fixed_top = 255;
                             }
                             RET => {
-                                self.frames.pop();
+                                let s = self.frames.pop();
                                 if self.frames.len() == 0 {
-                                    break;
+                                    return (s.unwrap().fixed_tops(),None);
                                 }
                             }
                             RETURN => {
@@ -325,10 +341,10 @@ impl State {
                                     self.stack().pop()
                                 {
                                     if let super::Value(super::PrimeValue::Sym(path), _) =
-                                        self.stack().get(a as isize)
+                                        self.stack().get(a as usize)
                                     {
                                         if let super::Value(super::PrimeValue::Sym(name), _) =
-                                            self.stack().get(b as isize)
+                                            self.stack().get(b as usize)
                                         {
                                             let r = super::ffi::dynamic_lib::pass_args_to_NFunc_and_call(
                                                 path,name,ty,
@@ -353,13 +369,22 @@ impl State {
                                 let idx = unsafe {
                                     RESUME_OP.get_fix().opmode.get_a(*(ins.0 as *const u32))
                                 };
-                                let super::Value(c, _) = &mut self.stack().get(idx as isize);
+                                let super::Value(c, _) = &mut self.stack().get(idx as usize);
                                 if let super::PrimeValue::Thread(_, stack) = &c {
                                     if let Some(stack) = stack {
+                                        if stack.on_err{
+                                            self.stack().on_err = true;
+                                            continue;
+                                        }
                                         println!("resumed with stack:\n  {:?}", stack);
-                                        let h = super::super::new_sub_thread(step_into,stack.clone(),self.sr.0.clone(),self.sr.1.clone());
+                                        let h = super::super::new_sub_thread(
+                                            step_into,
+                                            stack.clone(),
+                                            self.sr.0.clone(),
+                                            self.sr.1.clone(),
+                                        );
                                         self.stack().set(
-                                            idx as isize,
+                                            idx as usize,
                                             super::Value::from(super::PrimeValue::Thread(
                                                 h,
                                                 Some(stack.clone()),
@@ -377,10 +402,10 @@ impl State {
                                     self.stack().pop()
                                 {
                                     if let super::Value(super::PrimeValue::Sym(path), _) =
-                                        self.stack().get(a as isize)
+                                        self.stack().get(a as usize)
                                     {
                                         if let super::Value(super::PrimeValue::Sym(name), _) =
-                                            self.stack().get(b as isize)
+                                            self.stack().get(b as usize)
                                         {
                                             let r = super::ffi::dynamic_lib::pass_args_to_NFunc_and_call(
                                                 path,name,ty,
@@ -397,6 +422,26 @@ impl State {
                                 } else {
                                     panic!("ERROR! IS NOT TYPE")
                                 }
+                            },
+                            ERRJMP => {
+                                // i dont give a fuck what you want to return, because there is a error
+                                // you must handle it now!
+                                self.stack().fixed_top = 255;
+
+                                let value = unsafe {
+                                    ERRJMP_OP.get_fix().opmode.get_ax(*(ins.0 as *const u32))
+                                };
+                                self.stack().on_err = false;
+                                let label = self
+                                    .stack()
+                                    .closure
+                                    .func()
+                                    .instruction_table
+                                    .iter()
+                                    .position(|r| r.label == value)
+                                    .expect("ERROR! LABEL DOES NOT EXIST");
+                                self.stack().closure.current_label_number = label as u16;
+                                *self.pc() = 0;
                             }
                             _ => unimplemented!(),
                         }
@@ -410,55 +455,55 @@ impl State {
                                 let (dst, src1, src2) = unsafe {
                                     EQ_OP.get_fix().opmode.get_abc(*(ins.0 as *const u32))
                                 };
-                                let vsrc1 = self.stack().get(src1 as isize);
-                                let vsrc2 = self.stack().get(src2 as isize);
+                                let vsrc1 = self.stack().get(src1 as usize);
+                                let vsrc2 = self.stack().get(src2 as usize);
                                 let res = super::super::op::comp::eq(vsrc1, vsrc2);
-                                self.stack().set(dst as isize, res);
+                                self.stack().set(dst as usize, res);
                             }
                             LE => {
                                 let (dst, src1, src2) = unsafe {
                                     LE_OP.get_fix().opmode.get_abc(*(ins.0 as *const u32))
                                 };
-                                let vsrc1 = self.stack().get(src1 as isize);
-                                let vsrc2 = self.stack().get(src2 as isize);
+                                let vsrc1 = self.stack().get(src1 as usize);
+                                let vsrc2 = self.stack().get(src2 as usize);
                                 let res = super::super::op::comp::le(vsrc1, vsrc2);
-                                self.stack().set(dst as isize, res);
+                                self.stack().set(dst as usize, res);
                             }
                             GT => {
                                 let (dst, src1, src2) = unsafe {
                                     GT_OP.get_fix().opmode.get_abc(*(ins.0 as *const u32))
                                 };
-                                let vsrc1 = self.stack().get(src1 as isize);
-                                let vsrc2 = self.stack().get(src2 as isize);
+                                let vsrc1 = self.stack().get(src1 as usize);
+                                let vsrc2 = self.stack().get(src2 as usize);
                                 let res = super::super::op::comp::gt(vsrc1, vsrc2);
-                                self.stack().set(dst as isize, res);
+                                self.stack().set(dst as usize, res);
                             }
                             NEQ => {
                                 let (dst, src1, src2) = unsafe {
                                     NEQ_OP.get_fix().opmode.get_abc(*(ins.0 as *const u32))
                                 };
-                                let vsrc1 = self.stack().get(src1 as isize);
-                                let vsrc2 = self.stack().get(src2 as isize);
+                                let vsrc1 = self.stack().get(src1 as usize);
+                                let vsrc2 = self.stack().get(src2 as usize);
                                 let res = super::super::op::comp::neq(vsrc1, vsrc2);
-                                self.stack().set(dst as isize, res);
+                                self.stack().set(dst as usize, res);
                             }
                             LEEQ => {
                                 let (dst, src1, src2) = unsafe {
                                     LEEQ_OP.get_fix().opmode.get_abc(*(ins.0 as *const u32))
                                 };
-                                let vsrc1 = self.stack().get(src1 as isize);
-                                let vsrc2 = self.stack().get(src2 as isize);
+                                let vsrc1 = self.stack().get(src1 as usize);
+                                let vsrc2 = self.stack().get(src2 as usize);
                                 let res = super::super::op::comp::leeq(vsrc1, vsrc2);
-                                self.stack().set(dst as isize, res);
+                                self.stack().set(dst as usize, res);
                             }
                             GTEQ => {
                                 let (dst, src1, src2) = unsafe {
                                     GTEQ_OP.get_fix().opmode.get_abc(*(ins.0 as *const u32))
                                 };
-                                let vsrc1 = self.stack().get(src1 as isize);
-                                let vsrc2 = self.stack().get(src2 as isize);
+                                let vsrc1 = self.stack().get(src1 as usize);
+                                let vsrc2 = self.stack().get(src2 as usize);
                                 let res = super::super::op::comp::gteq(vsrc1, vsrc2);
-                                self.stack().set(dst as isize, res);
+                                self.stack().set(dst as usize, res);
                             }
                             _ => unimplemented!(),
                         }
@@ -484,24 +529,24 @@ impl State {
                                 use super::PrimeValue::*;
                                 use super::Value;
 
-                                match &mut self.stack().get(rs2 as isize).0 {
+                                match &mut self.stack().get(rs2 as usize).0 {
                                     Null => {
-                                        self.stack().set(rs1 as isize, Value::from(Null));
+                                        self.stack().set(rs1 as usize, Value::from(Null));
                                     }
                                     Char(c) => {
                                         self.stack().set(
-                                            rs1 as isize,
+                                            rs1 as usize,
                                             Value::from(Char((-(*c as i16)) as u16)),
                                         );
                                     }
                                     Int(i) => {
                                         self.stack().set(
-                                            rs1 as isize,
+                                            rs1 as usize,
                                             Value::from(Int((-(*i as i32)) as u32)),
                                         );
                                     }
                                     Num(n) => {
-                                        self.stack().set(rs1 as isize, Value::from(Num(-*n)));
+                                        self.stack().set(rs1 as usize, Value::from(Num(-*n)));
                                     }
                                     _ => unimplemented!(),
                                 }
@@ -512,46 +557,46 @@ impl State {
                                 let (dst, src1, src2) = unsafe {
                                     ADD_OP.get_fix().opmode.get_abc(*(ins.0 as *const u32))
                                 };
-                                let vsrc1 = self.stack().get(src1 as isize);
-                                let vsrc2 = self.stack().get(src2 as isize);
+                                let vsrc1 = self.stack().get(src1 as usize);
+                                let vsrc2 = self.stack().get(src2 as usize);
                                 let res = super::super::op::arith::add(vsrc1, vsrc2);
-                                self.stack().set(dst as isize, res);
+                                self.stack().set(dst as usize, res);
                             }
                             SUB => {
                                 let (dst, src1, src2) = unsafe {
                                     ADD_OP.get_fix().opmode.get_abc(*(ins.0 as *const u32))
                                 };
-                                let vsrc1 = self.stack().get(src1 as isize);
-                                let vsrc2 = self.stack().get(src2 as isize);
+                                let vsrc1 = self.stack().get(src1 as usize);
+                                let vsrc2 = self.stack().get(src2 as usize);
                                 let res = super::super::op::arith::sub(vsrc1, vsrc2);
-                                self.stack().set(dst as isize, res);
+                                self.stack().set(dst as usize, res);
                             }
                             MUL => {
                                 let (dst, src1, src2) = unsafe {
                                     ADD_OP.get_fix().opmode.get_abc(*(ins.0 as *const u32))
                                 };
-                                let vsrc1 = self.stack().get(src1 as isize);
-                                let vsrc2 = self.stack().get(src2 as isize);
+                                let vsrc1 = self.stack().get(src1 as usize);
+                                let vsrc2 = self.stack().get(src2 as usize);
                                 let res = super::super::op::arith::mul(vsrc1, vsrc2);
-                                self.stack().set(dst as isize, res);
+                                self.stack().set(dst as usize, res);
                             }
                             MOD => {
                                 let (dst, src1, src2) = unsafe {
                                     ADD_OP.get_fix().opmode.get_abc(*(ins.0 as *const u32))
                                 };
-                                let vsrc1 = self.stack().get(src1 as isize);
-                                let vsrc2 = self.stack().get(src2 as isize);
+                                let vsrc1 = self.stack().get(src1 as usize);
+                                let vsrc2 = self.stack().get(src2 as usize);
                                 let res = super::super::op::arith::modu(vsrc1, vsrc2);
-                                self.stack().set(dst as isize, res);
+                                self.stack().set(dst as usize, res);
                             }
                             DIV => {
                                 let (dst, src1, src2) = unsafe {
                                     ADD_OP.get_fix().opmode.get_abc(*(ins.0 as *const u32))
                                 };
-                                let vsrc1 = self.stack().get(src1 as isize);
-                                let vsrc2 = self.stack().get(src2 as isize);
+                                let vsrc1 = self.stack().get(src1 as usize);
+                                let vsrc2 = self.stack().get(src2 as usize);
                                 let res = super::super::op::arith::div(vsrc1, vsrc2);
-                                self.stack().set(dst as isize, res);
+                                self.stack().set(dst as usize, res);
                             }
                             IDIV => {}
                             BNOT => {}
@@ -592,10 +637,15 @@ impl State {
                                 let idx = unsafe {
                                     NEWTHREAD_OP.get_fix().opmode.get_a(*(ins.0 as *const u32))
                                 };
-                                let super::Value(c, _) = self.stack().get(idx as isize);
+                                let super::Value(c, _) = self.stack().get(idx as usize);
                                 if let super::PrimeValue::Closure(c) = c {
                                     use super::super::*;
-                                    let h = new_sub_thread(step_into,Stack::new_from_closure(Box::new(c)),self.sr.0.clone(), self.sr.1.clone());
+                                    let h = new_sub_thread(
+                                        step_into,
+                                        Stack::new_from_closure(Box::new(c)),
+                                        self.sr.0.clone(),
+                                        self.sr.1.clone(),
+                                    );
                                     let v = super::Value::from(super::PrimeValue::Thread(h, None));
                                     self.stack().push(v);
                                 } else {
@@ -606,10 +656,16 @@ impl State {
                                 let idx = unsafe {
                                     GETTRET_OP.get_fix().opmode.get_a(*(ins.0 as *const u32))
                                 };
-                                let super::Value(c, _) = self.stack().get(idx as isize);
+                                let super::Value(c, _) = self.stack().get(idx as usize);
                                 if let super::PrimeValue::Thread(t, _) = &c {
                                     let mut res = super::super::get_join_handle(*t).await;
-                                    println!("thread returned:\n  {:?}",res);
+                                    if let Some(stack) = &res.1{
+                                        if stack.on_err{
+                                            self.stack().on_err = true;
+                                            continue;
+                                        }
+                                    }
+                                    println!("thread returned:\n  {:?}", res);
                                     self.stack().stack.append(&mut res.0);
                                 }
                             }
@@ -618,19 +674,37 @@ impl State {
                                 let idx = unsafe {
                                     GETTRET_OP.get_fix().opmode.get_a(*(ins.0 as *const u32))
                                 };
-                                let super::Value(c, _) = self.stack().get(idx as isize);
-                                if let super::PrimeValue::Thread(t,_) = &c {
+                                let super::Value(c, _) = self.stack().get(idx as usize);
+                                if let super::PrimeValue::Thread(t, _) = &c {
                                     let (mut res, stack) = super::super::get_join_handle(*t).await;
+                                    if let Some(stack) = &stack{
+                                        if stack.on_err{
+                                            self.stack().on_err = true;
+                                            continue;
+                                        }
+                                    }
                                     println!("yielded thread with stack:\n  {:?}", stack);
                                     self.stack().stack.append(&mut res);
                                     self.stack().set(
-                                        idx as isize,
+                                        idx as usize,
                                         super::Value::from(super::PrimeValue::Thread(
                                             *t,
                                             stack.clone(),
                                         )),
                                     );
                                 }
+                            },
+                            GETERR => {
+                                let idx = unsafe {
+                                    GETERR_OP.get_fix().opmode.get_a(*(ins.0 as *const u32))
+                                };
+                                let v = self.stack().get(idx as usize);
+                                if let super::PrimeValue::Error(e) = v.0{
+                                    self.stack().set(idx as usize,super::Value::from(*e));
+                                }else{
+                                    panic!("ERROR! IDX IS NOT ERROR");
+                                }
+    
                             }
                             _ => unimplemented!(),
                         }
@@ -656,10 +730,11 @@ impl State {
             }
         }
 
+        use colored::Colorize;
         match self.status {
-            Status::RUNNING => panic!("ERROR NO WAY! IS NOT RUNNING"),
+            Status::RUNNING => panic!("ERROR? NO WAY! IS RUNNING!"),
             Status::ERROR => {
-                println!("STOPED WITH ERROR OCCURS");
+                println!("{}","STOPED WITH ERROR OCCURS".red());
                 let stack: Stack = self.frames.last().unwrap().clone();
                 return (self.stack().fixed_tops(), Some(stack));
             }

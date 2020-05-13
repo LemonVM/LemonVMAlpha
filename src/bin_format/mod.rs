@@ -31,6 +31,8 @@ pub const TAG_USERDATA: u8 = 0x10;
 pub const TAG_FUNC:u8 = 0x11;
 pub const TAG_BYTE:u8 = 0x12; // for IO ops
 pub const TAG_TYPE:u8 = 0x13;
+pub const TAG_THREAD:u8 = 0x14;
+pub const TAG_ERROR:u8 = 0x15;
 
 pub type VMBool = bool;
 pub type VMByte = u8;

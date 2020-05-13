@@ -13,6 +13,7 @@ pub const RETURN: u8 = 0x25;
 
 pub const YIELD: u8 = 0x29;
 pub const RESUME: u8 = 0x30;
+pub const ERRJMP:u8 = 0x31;
 
 //----------
 pub const JMP_OP: Op = Op::FIX(FixOp{op:JMP,opmode:FixOpMode::AX(VI)});
@@ -23,6 +24,7 @@ pub const CALL_OP: Op = Op::FIX(FixOp{op:CALL,opmode:FixOpMode::AB(RCC,RS)});
 pub const TAILCALL_OP: Op = Op::FIX(FixOp{op:TAILCALL,opmode:FixOpMode::None});
 pub const RET_OP: Op = Op::FIX(FixOp{op:RET,opmode:FixOpMode::None});
 pub const RETURN_OP: Op = Op::FIX(FixOp{op:RET,opmode:FixOpMode::None});
+pub const ERRJMP_OP:Op = Op::FIX(FixOp{op:JMP,opmode:FixOpMode::AX(VI)});
 
 // we open a hole here for native dynlib loading
 // load dynamic lib need path,symbolname

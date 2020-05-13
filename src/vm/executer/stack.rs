@@ -3,6 +3,7 @@ use super::*;
 
 #[derive(Debug,Clone,PartialEq)]
 pub struct Stack{
+    pub on_err:bool,
     pub stack:Vec<Value>,
     pub closure:Box<Closure>,
     pub pc: usize,
@@ -19,14 +20,14 @@ unsafe impl Sync for Stack{}
 
 impl Stack{
     pub fn new_from_closure(closure:Box<Closure>)->Stack{
-        Stack{stack:vec!(),pc:0,ir:IR(std::ptr::null()),closure,fixed_top:255}
+        Stack{on_err:false,stack:vec!(),pc:0,ir:IR(std::ptr::null()),closure,fixed_top:255}
     }
     pub fn new(func:Box<super::super::super::bin_format::func_type::FuncType>)->Stack{
-        Stack{stack:vec!(),pc:0,ir:IR(std::ptr::null()),closure:Box::new(Closure::new(FuncInClosure::Func(func.clone()),func.arg_types,func.ret_types)),fixed_top:255} //FIXME:GC this will be allocated in heap
+        Stack{on_err:false,stack:vec!(),pc:0,ir:IR(std::ptr::null()),closure:Box::new(Closure::new(FuncInClosure::Func(func.clone()),func.arg_types,func.ret_types)),fixed_top:255} //FIXME:GC this will be allocated in heap
     }
 
-    pub fn top(&self) -> isize {
-        self.stack.len() as isize
+    pub fn top(&self) -> usize {
+        self.stack.len()
     }
 
     pub fn check_ramain_enougth(&mut self, n: usize) -> bool {
@@ -41,34 +42,12 @@ impl Stack{
         self.stack.pop().unwrap()
     }
 
-    pub fn abs_index(&self, idx: isize) -> isize {
-        if idx >= 0 {
-            idx
-        } else {
-            idx + self.top() + 1
-        }
-    }
-    #[inline]
-    fn is_valid_abs(&self,idx:isize)->bool{
-        return idx >= 0 && idx <= self.top()
-    }
-    pub fn get(&self, idx: isize) -> Value {
-        let abs_idx = self.abs_index(idx);
-        if self.is_valid_abs(abs_idx) {
-            self.stack[abs_idx as usize].clone() // TODO
-        } else {
-            panic!("ERROR! INVALID INDEX {}",idx);
-        }
+    pub fn get(&self, idx: usize) -> Value {
+            self.stack[idx].clone()
     }
 
-    pub fn set(&mut self, idx: isize, val: Value) {
-        let abs_idx = self.abs_index(idx);
-        if self.is_valid_abs(abs_idx) {
-            use std::panic;
+    pub fn set(&mut self, idx: usize, val: Value) {
             self.stack[idx as usize] = val;
-        } else {
-            eprintln!("ERROR! INVALID INDEX {}",idx);
-        }
     }
 
     pub fn reverse(&mut self, mut from: usize, mut to: usize) {

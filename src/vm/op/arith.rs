@@ -67,6 +67,7 @@ macro_rules! tylet {
 }
 macro_rules! binary_expr {
     ($name:ident,$s1:tt) => {
+        #[inline]
         pub fn $name(a:Value,b:Value)->Value{
             let Value(v1,t1) = a.clone();
             let Value(v2,t2) = b.clone();
