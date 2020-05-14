@@ -13,6 +13,7 @@ libloading = "0.6"
 libffi = "0.9.0"
 async-trait = "0.1.30"
 colored = "1.9.3"
+rustyline = "6.1.2"
 
 [dependencies.async-std]
 version = "1.5.0"

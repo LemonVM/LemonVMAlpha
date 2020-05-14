@@ -12,6 +12,7 @@ pub mod vm;
 use std::env;
 use bin_format::*;
 use std::io;
+use rustyline::Editor;
 pub fn get_input(prompt: &str) -> String{
     println!("{}",prompt.green().bold());
     let mut input = String::new();
@@ -96,29 +97,37 @@ async fn main() {
     let h = new_thread(debug,stack);
     let (s,r) = get_sender_receiver(h.clone());
     println!("===== testing Async =====");
-    println!("UUID: {}",h);
-    if debug{
-        async_std::task::spawn(async move{
-            println!("{:?}",get_join_handle(h).await);
+    println!("UUID: {}", h);
+    if debug {
+        let mut _rl = Editor::<()>::new();
+        async_std::task::spawn(async move {
+            println!("{:?}", get_join_handle(h).await);
             std::process::exit(0);
         });
-            while debug{
-                // println!("1 - step into\n 2 - step over");
-                match get_input("1 - step into\n2 - step over").as_ref() {
-                    "1" => { println!("{}","    > step into\n".blue().bold());
-                        s.send(VMMessage::StepInto).await;
-                    },
-                    "2" => {
-                        println!("{}","    > step over".blue().bold());
-                        s.send(VMMessage::StepOver).await;
-                    },
-                    _ => {
-                        println!("{}","COMMAND NOT FOUND!".red().bold());
+        while debug {
+            match _rl.readline("1 - step into\n2 - step over\n") {
+                Ok(line) => {
+                    match line.trim().as_ref() {
+                        "1" => {
+                            println!("{}", "    > step into\n".blue().bold());
+                            s.send(VMMessage::StepInto).await;
+                        }
+                        "2" => {
+                            println!("{}", "    > step over".blue().bold());
+                            s.send(VMMessage::StepOver).await;
+                        }
+                        _ => {
+                            println!("{}", "COMMAND NOT FOUND!".red().bold());
+                        }
                     }
-                };
+                },
+                Err(_) => {
+                    println!("{}", "Unknown error".red().bold());
+                    break;
+                }
             }
-    }else{
-        println!("{:?}",get_join_handle(h).await);
+        }
+    } else {
+        println!("{:?}", get_join_handle(h).await);
     }
-
 }
