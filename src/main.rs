@@ -104,17 +104,18 @@ async fn main() {
         });
             while debug{
                 // println!("1 - step into\n 2 - step over");
-                let ss = get_input("1 - step into\n2 - step over");
-                if ss == "1"{
-                    println!("{}","    > step into\n".blue().bold());
-                    s.send(VMMessage::StepInto).await;
-                }else if ss == "2" {
-                    println!("{}","    > step over".blue().bold());
-                    s.send(VMMessage::StepOver).await;
-                }else{
-                    println!("{}","COMMAND NOT FOUND!".red().bold());
-                    continue;
-                }
+                match get_input("1 - step into\n2 - step over").as_ref() {
+                    "1" => { println!("{}","    > step into\n".blue().bold());
+                        s.send(VMMessage::StepInto).await;
+                    },
+                    "2" => {
+                        println!("{}","    > step over".blue().bold());
+                        s.send(VMMessage::StepOver).await;
+                    },
+                    _ => {
+                        println!("{}","COMMAND NOT FOUND!".red().bold());
+                    }
+                };
             }
     }else{
         println!("{:?}",get_join_handle(h).await);
