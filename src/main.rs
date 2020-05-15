@@ -12,22 +12,25 @@ use colored::*;
 
 pub mod bin_format;
 pub mod vm;
+pub mod cmd;
 
 use std::env;
 use bin_format::*;
 use std::io;
 use rustyline::Editor;
-use clap::{Arg, App, SubCommand};
+use clap::{App};
 
 use async_std::prelude::*;
+use crate::cmd::Registrable;
 
 #[async_std::main]
 async fn main() {
     let matches =
         App::new("Lemon-VM")
-            .version("")
-            .arg_from_usage(
-                "--debug 'enable debug mode'"
+            .version("0.1.2")
+            .register_option("debug", Option::from("Enable debug mode"))
+            .args_from_usage(
+                "[INPUT]              'Sets the input file to use'"
             )
             .get_matches();
     let debug = matches.is_present("debug");
