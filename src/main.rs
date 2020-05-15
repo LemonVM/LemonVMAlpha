@@ -6,6 +6,7 @@
 #[macro_use]
 extern crate lazy_static;
 extern crate libc;
+extern crate clap;
 
 use colored::*;
 
@@ -16,11 +17,20 @@ use std::env;
 use bin_format::*;
 use std::io;
 use rustyline::Editor;
+use clap::{Arg, App, SubCommand};
 
 use async_std::prelude::*;
 
 #[async_std::main]
 async fn main() {
+    let matches =
+        App::new("Lemon-VM")
+            .version("")
+            .arg_from_usage(
+                "--debug 'enable debug mode'"
+            )
+            .get_matches();
+    let debug = matches.is_present("debug");
     let constant_pool = [
         0x01,
         0x11,
@@ -84,7 +94,6 @@ async fn main() {
     //println!("{}",func);
     let stack = vm::executer::stack::Stack::new(Box::new(func));
     use vm::*;
-    let debug = false;
     let h = new_thread(debug, stack);
     let (s, r) = get_sender_receiver(h.clone());
     println!("===== testing Async =====");
